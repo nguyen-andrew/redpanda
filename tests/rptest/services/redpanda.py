@@ -3768,6 +3768,23 @@ class RedpandaService(Service, RedpandaServiceABC):
         for line in node.account.ssh_capture("netstat -panelot", timeout_sec=30):
             self.logger.debug(line.strip())
 
+    def _log_process_status(self, node: ClusterNode, pid: int):
+        """
+        Log the status of a process from /proc/[pid]/status
+        """
+        self.logger.debug(f"{node.name}: Gathering /proc/{pid}/status for node...")
+        cmd = f"cat /proc/{pid}/status"
+        lines = []
+        for line in node.account.ssh_capture(cmd, allow_fail=True, timeout_sec=10):
+            if re.search(r"CoreDumping:\s*1", line):
+                self.logger.warn(
+                    f"{node.name}: Detected core dumping in process {pid} status."
+                )
+            lines.append(line.strip())
+
+        output_str = "\n".join(lines)
+        self.logger.debug(f"{node.name}: /proc/{pid}/status:\n{output_str}")
+
     def start_service(self, node, start):
         # Maybe the service collides with something that wasn't cleaned up
         # properly: let's peek at what's going on on the node before starting it.
@@ -4579,17 +4596,32 @@ class RedpandaService(Service, RedpandaServiceABC):
         if pid is None:
             return
 
+        self.logger.info(f"{node.name}: Stopping redpanda (pid {pid})")
+
         node.account.signal(
             pid, signal.SIGKILL if forced else signal.SIGTERM, allow_fail=False
         )
 
         stop_timeout = timeout or 30
+
+        def check_redpanda_process_stopped():
+            is_stopped = self.redpanda_pid(node) is None
+            if not is_stopped:
+                self.logger.debug(
+                    f"{node.name}: Redpanda process (pid {pid}) still running."
+                )
+                self._log_process_status(node, pid)
+
+            return is_stopped
+
         try:
             wait_until(
-                lambda: self.redpanda_pid(node) is None,
+                check_redpanda_process_stopped,
                 timeout_sec=stop_timeout,
                 err_msg=f"Redpanda node {node.account.hostname} failed to stop in {stop_timeout} seconds",
             )
+
+            self.logger.info(f"{node.name}: Redpanda process has exited.")
         except TimeoutError:
             sleep_sec = 10
             self.logger.warn(
@@ -4598,6 +4630,7 @@ class RedpandaService(Service, RedpandaServiceABC):
             self._set_trace_loggers_and_sleep(node, time_sec=sleep_sec)
             self.logger.warn(f"Node {node.name} status:")
             self._log_node_process_state(node)
+            self._log_process_status(node, pid)
             self._log_node_shutdown_analysis(node)
             # Kill the process if it's still running. If redpanda still runs we
             # might fail to collect logs as the file will be modified while we
