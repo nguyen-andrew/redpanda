@@ -13,7 +13,7 @@
 
 #include "base/outcome.h"
 #include "base/seastarx.h"
-#include "container/chunked_vector.h"
+#include "container/fragmented_vector.h"
 #include "json/iobuf_writer.h"
 #include "kafka/protocol/errors.h"
 #include "model/metadata.h"
