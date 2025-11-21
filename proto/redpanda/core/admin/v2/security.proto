@@ -1,0 +1,716 @@
+// Copyright 2025 Redpanda Data, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package redpanda.core.admin.v2;
+
+import "proto/redpanda/core/pbgen/options.proto";
+import "proto/redpanda/core/pbgen/rpc.proto";
+
+option (pbgen.cpp_namespace) = "proto::admin";
+
+// The SecurityService provides user and role management functionality
+service SecurityService {
+    // POST /v1/security/user
+    // Create user
+    rpc CreateUser(CreateUserRequest) returns (CreateUserResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // GET /v1/security/users
+    // List users
+    rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // DELETE /v1/security/users/{user}
+    // Delete user
+    rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // PUT /v1/security/users/{user}
+    // Update user
+    rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // GET /v1/security/users/roles
+    // List roles assignments for a user
+    rpc ListUserRoles(ListUserRolesRequest) returns (ListUserRolesResponse) {
+        option (pbgen.rpc) = {
+            authz: USER
+        };
+    }
+
+    // GET /v1/security/oidc/whoami
+    // Verify identity of current user and resolve to a principal.
+    // Obtain the principal and details of the JWT passed in the bearer token.
+    rpc OidcWhoami(OidcWhoamiRequest) returns (OidcWhoamiResponse) {
+        option (pbgen.rpc) = {
+            authz: USER
+        };
+    }
+
+    // POST /v1/security/oidc/keys/cache_invalidate
+    // Reload the keys from the identity provider. 
+    // Flush the JWK cache and force reload keys.
+    rpc OidcKeysCacheInvalidate(OidcKeysCacheInvalidateRequest) returns (OidcKeysCacheInvalidateResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // POST /v1/security/oidc/revoke
+    // Reload the keys from the identity provider and disconnect clients.
+    // Explicitly revoke client tokens by flushing caches and disconnecting clients to ensure revoked tokens are not used.
+    rpc OidcRevoke(OidcRevokeRequest) returns (OidcRevokeResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+
+    // GET /v1/security/roles – List roles
+    rpc ListRoles(ListRolesRequest) returns (ListRolesResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // POST /v1/security/roles
+    // Create a role
+    rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // GET /v1/security/roles/{role}
+    // Get the specified role
+    rpc GetRole(GetRoleRequest) returns (GetRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // DELETE /v1/security/roles/{role}
+    // Remove a role by name
+    rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // GET /v1/security/roles/{role}/members
+    // List members assigned a given role
+    rpc ListRoleMembers(ListRoleMembersRequest) returns (ListRoleMembersResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // POST /v1/security/roles/{role}/members
+    // Update role membership
+    rpc UpdateRoleMembers(UpdateRoleMembersRequest) returns (UpdateRoleMembersResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+
+    // GET /v1/security/report
+    // Get comprehensive security report for all interfaces
+    rpc GetSecurityReport(GetSecurityReportRequest) returns (GetSecurityReportResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+    // Get comprehensive security report for all interfaces
+    rpc GetSecurityReport(GetSecurityReportRequest) returns (GetSecurityReportResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+    
+}
+
+// A user resource
+message User {
+    // The user's name. Format: users/{user_id}
+    string name = 1;
+    
+    // The user's unique identifier
+    string user_id = 2;
+    
+    // Whether this is an ephemeral user
+    bool ephemeral = 3;
+    
+    // The user's password (only used in create/update requests)
+    optional string password = 4;
+    
+    // Additional user metadata
+    map<string, string> metadata = 5;
+}
+
+// SCRAM credential for user authentication
+message ScramCredential {
+    // The SCRAM algorithm to use
+    enum Algorithm {
+        ALGORITHM_UNSPECIFIED = 0;
+        SCRAM_SHA_256 = 1;
+        SCRAM_SHA_512 = 2;
+    }
+    
+    // The SCRAM algorithm
+    Algorithm algorithm = 1;
+    
+    // The user's password
+    string password = 2 [debug_redact = true];
+}
+
+// A role description
+message RoleDescription {
+    // The role's name
+    string name = 1;
+}
+
+// Request message for listing users (AIP-132)
+message ListUsersRequest {
+    // The maximum number of users to return. The service may return fewer than this value.
+    // If unspecified, at most 50 users will be returned.
+    int32 page_size = 1;
+    
+    // A page token, received from a previous `ListUsers` call.
+    // Provide this to retrieve the subsequent page.
+    string page_token = 2;
+    
+    // A filter expression that filters users listed in the response.
+    // The expression must follow the syntax outlined in AIP-160.
+    string filter = 3;
+    
+    // If true, include ephemeral users in the response
+    bool include_ephemeral = 4;
+}
+
+// Response message for listing users (AIP-132)
+message ListUsersResponse {
+    // The users from the specified collection
+    repeated User users = 1;
+    
+    // A token, which can be sent as `page_token` to retrieve the next page.
+    // If this field is omitted, there are no subsequent pages.
+    string next_page_token = 2;
+}
+
+// Request message for creating a user (AIP-133)
+message CreateUserRequest {
+    // The user to create
+    User user = 1;
+    
+    // The ID to use for the user, which will become the final component of
+    // the user's resource name. If not specified, the server will generate one.
+    string user_id = 2;
+}
+
+// Response message for creating a user (AIP-133)
+message CreateUserResponse {
+    // The created user
+    User user = 1;
+}
+
+// Request message for deleting a user (AIP-135)
+message DeleteUserRequest {
+    // The name of the user to delete.
+    // Format: users/{user_id}
+    string name = 1;
+}
+
+// Response message for deleting a user (AIP-135)
+message DeleteUserResponse {
+    // Empty response for successful deletion
+}
+
+// Request message for updating a user (AIP-134)
+message UpdateUserRequest {
+    // The name of the user to update.
+    // Format: users/{user_id}
+    string name = 1;
+    
+    // The SCRAM credential to update for the user
+    ScramCredential credential = 2;
+}
+
+// Response message for updating a user (AIP-134)
+message UpdateUserResponse {
+    // Empty response for successful update
+}
+
+// Request message for listing user roles
+message ListUserRolesRequest {
+    // Return only roles whose names match this substring
+    string filter = 1;
+}
+
+// Response message for listing user roles
+message ListUserRolesResponse {
+    // List of roles assigned to the user
+    repeated RoleDescription roles = 1;
+}
+
+// Request message for OIDC whoami endpoint
+message OidcWhoamiRequest {
+    // Empty request - authentication comes from bearer token
+}
+
+// Response message for OIDC whoami endpoint
+message OidcWhoamiResponse {
+    // Mapped principal for authorization
+    string id = 1;
+    
+    // Unix timestamp of the expiry of the token
+    int64 expire = 2;
+}
+
+// Request message for OIDC keys cache invalidate endpoint
+message OidcKeysCacheInvalidateRequest {
+    // Empty request - no parameters needed
+}
+
+// Response message for OIDC keys cache invalidate endpoint
+message OidcKeysCacheInvalidateResponse {
+    // Empty response for successful cache invalidation
+    // Errors are handled via standard gRPC error responses
+}
+
+// Request message for OIDC revoke endpoint
+message OidcRevokeRequest {
+    // Empty request - no parameters needed
+}
+
+// Response message for OIDC revoke endpoint
+message OidcRevokeResponse {
+    // Empty response for successful revocation
+    // Errors are handled via standard gRPC error responses
+}
+
+// Request message for listing roles
+message ListRolesRequest {
+    // Return only roles whose names match this substring
+    optional string filter = 1;
+    
+    // Return only roles which are assigned to this user
+    optional string principal = 2;
+    
+    // Principal type - applies to `principal` parameter. Ignored if `principal` is not set
+    optional string principal_type = 3;
+}
+
+// Response message for listing roles
+message ListRolesResponse {
+    // List of roles
+    repeated RoleDescription roles = 1;
+}
+
+// Request message for creating a role
+message CreateRoleRequest {
+    // The role name to create
+    string role = 1;
+}
+
+// Response message for creating a role
+message CreateRoleResponse {
+    // The created role name
+    string role = 1;
+}
+
+// A role member
+message RoleMember {
+    // The principal type enumeration
+    enum PrincipalType {
+        PRINCIPAL_TYPE_UNSPECIFIED = 0;
+        USER = 1;
+    }
+    
+    // The member name
+    string name = 1;
+    
+    // The principal type
+    PrincipalType principal_type = 2;
+}
+
+// A complete role with its members
+message Role {
+    // The role name
+    string name = 1;
+    
+    // List of members assigned to this role
+    repeated RoleMember members = 2;
+}
+
+// Request message for getting a role
+message GetRoleRequest {
+    // The role name to retrieve
+    string role = 1;
+}
+
+// Response message for getting a role
+message GetRoleResponse {
+    // The role details
+    Role role = 1;
+}
+
+// Request message for deleting a role
+message DeleteRoleRequest {
+    // The role name to delete
+    string role = 1;
+}
+
+// Response message for deleting a role
+message DeleteRoleResponse {
+    // Empty response for successful deletion
+    // Errors are handled via standard gRPC error responses
+}
+
+// Request message for listing role members
+message ListRoleMembersRequest {
+    // The role name to list members for
+    string role = 1;
+}
+
+// Response message for listing role members
+message ListRoleMembersResponse {
+    // List of members assigned to the role
+    repeated RoleMember members = 1;
+}
+
+// Request message for updating role members
+message UpdateRoleMembersRequest {
+    // The role name to update members for
+    string role = 1;
+    
+    // Members to add to the role
+    repeated RoleMember add = 2;
+    
+    // Members to remove from the role
+    repeated RoleMember remove = 3;
+    
+    // Creates a role with name {role} if not found
+    optional bool create = 4;
+}
+
+// Response message for updating role members
+message UpdateRoleMembersResponse {
+    // The updated role details
+    Role role = 1;
+}
+
+// Request message for getting security report
+message GetSecurityReportRequest {
+    // Empty request - no parameters needed
+}
+
+// Response message for getting security report
+message GetSecurityReportResponse {
+    // Security report data
+    SecurityReport report = 1;
+}
+
+// Main security report structure
+message SecurityReport {
+    // Interface-specific security reports
+    InterfacesReport interfaces = 1;
+    
+    // Security alerts
+    repeated SecurityReportAlert alerts = 2;
+}
+
+// Container for all interface reports
+message InterfacesReport {
+    // Kafka interface reports
+    repeated KafkaInterfaceSecurityReport kafka = 1;
+    
+    // RPC interface report
+    RpcInterfaceSecurityReport rpc = 2;
+    
+    // Admin interface reports
+    repeated AdminInterfaceSecurityReport admin = 3;
+    
+    // Schema registry interface reports
+    repeated SchemaRegistryInterfaceSecurityReport schema_registry = 4;
+    
+    // Schema registry client report
+    ClientSecurityReport schema_registry_client = 5;
+    
+    // Pandaproxy interface reports
+    repeated PandaproxyInterfaceSecurityReport pandaproxy = 6;
+    
+    // Audit log client report
+    ClientSecurityReport audit_log_client = 7;
+}
+
+// Host and port pair
+message HostPort {
+    // Host address
+    string host = 1;
+    
+    // Port number
+    int32 port = 2;
+}
+
+// Security report for Kafka interfaces
+message KafkaInterfaceSecurityReport {
+    // Authentication method enum for Kafka
+    enum AuthenticationMethod {
+        AUTHENTICATION_METHOD_UNSPECIFIED = 0;
+        SASL = 1;
+        MTLS = 2;
+        NONE = 3;
+    }
+    
+    // Interface name
+    string name = 1;
+    
+    // Host address
+    string host = 2;
+    
+    // Port number
+    int32 port = 3;
+    
+    // Advertised host
+    string advertised_host = 4;
+    
+    // Advertised port
+    int32 advertised_port = 5;
+    
+    // TLS enabled flag
+    bool tls_enabled = 6;
+    
+    // Mutual TLS enabled flag
+    bool mutual_tls_enabled = 7;
+    
+    // Authentication method
+    AuthenticationMethod authentication_method = 8;
+    
+    // Authorization enabled flag
+    bool authorization_enabled = 9;
+    
+    // Supported SASL mechanisms
+    repeated string supported_sasl_mechanisms = 10;
+}
+
+// Security report for RPC interface
+message RpcInterfaceSecurityReport {
+    // Host address
+    string host = 1;
+    
+    // Port number
+    int32 port = 2;
+    
+    // Advertised host
+    string advertised_host = 3;
+    
+    // Advertised port
+    int32 advertised_port = 4;
+    
+    // TLS enabled flag
+    bool tls_enabled = 5;
+    
+    // Mutual TLS enabled flag
+    bool mutual_tls_enabled = 6;
+}
+
+// Security report for Admin interfaces
+message AdminInterfaceSecurityReport {
+    // Authentication method enum for Admin
+    enum AuthenticationMethod {
+        AUTHENTICATION_METHOD_UNSPECIFIED = 0;
+        BASIC = 1;
+        OIDC = 2;
+    }
+    
+    // Interface name
+    string name = 1;
+    
+    // Host address
+    string host = 2;
+    
+    // Port number
+    int32 port = 3;
+    
+    // TLS enabled flag
+    bool tls_enabled = 4;
+    
+    // Mutual TLS enabled flag
+    bool mutual_tls_enabled = 5;
+    
+    // Authentication methods
+    repeated AuthenticationMethod authentication_methods = 6;
+    
+    // Authorization enabled flag
+    bool authorization_enabled = 7;
+}
+
+// Security report for Schema Registry interfaces
+message SchemaRegistryInterfaceSecurityReport {
+    // Authentication method enum for Schema Registry
+    enum AuthenticationMethod {
+        AUTHENTICATION_METHOD_UNSPECIFIED = 0;
+        BASIC = 1;
+        OIDC = 2;
+    }
+    
+    // Interface name
+    string name = 1;
+    
+    // Host address
+    string host = 2;
+    
+    // Port number
+    int32 port = 3;
+    
+    // TLS enabled flag
+    bool tls_enabled = 4;
+    
+    // Mutual TLS enabled flag
+    bool mutual_tls_enabled = 5;
+    
+    // Authentication methods
+    repeated AuthenticationMethod authentication_methods = 6;
+    
+    // Authorization enabled flag
+    bool authorization_enabled = 7;
+}
+
+// Security report for Pandaproxy interfaces
+message PandaproxyInterfaceSecurityReport {
+    // Authentication method enum for Pandaproxy client
+    enum ConfiguredAuthenticationMethod {
+        CONFIGURED_AUTHENTICATION_METHOD_UNSPECIFIED = 0;
+        NONE = 1;
+        SCRAM_CONFIGURED = 2;
+        SCRAM_PROXIED = 3;
+    }
+    
+    // Authentication method enum for Pandaproxy interface
+    enum AuthenticationMethod {
+        AUTHENTICATION_METHOD_UNSPECIFIED = 0;
+        BASIC = 1;
+        OIDC = 2;
+    }
+    
+    // Interface name
+    string name = 1;
+    
+    // Host address
+    string host = 2;
+    
+    // Port number
+    int32 port = 3;
+    
+    // Advertised host
+    string advertised_host = 4;
+    
+    // Advertised port
+    int32 advertised_port = 5;
+    
+    // TLS enabled flag
+    bool tls_enabled = 6;
+    
+    // Mutual TLS enabled flag
+    bool mutual_tls_enabled = 7;
+    
+    // Authentication methods for the interface
+    repeated AuthenticationMethod authentication_methods = 8;
+    
+    // Authorization enabled flag
+    bool authorization_enabled = 9;
+    
+    // Configured authentication method for client connections
+    ConfiguredAuthenticationMethod configured_authentication_method = 10;
+}
+
+// Security report for client interfaces
+message ClientSecurityReport {
+    // Authentication method enum for clients
+    enum ConfiguredAuthenticationMethod {
+        CONFIGURED_AUTHENTICATION_METHOD_UNSPECIFIED = 0;
+        NONE = 1;
+        SCRAM_CONFIGURED = 2;
+        SCRAM_EPHEMERAL = 3;
+    }
+    
+    // Kafka listener name
+    string kafka_listener_name = 1;
+    
+    // Broker endpoints
+    repeated HostPort brokers = 2;
+    
+    // TLS enabled flag
+    bool tls_enabled = 3;
+    
+    // Mutual TLS enabled flag
+    bool mutual_tls_enabled = 4;
+    
+    // Configured authentication method
+    ConfiguredAuthenticationMethod configured_authentication_method = 5;
+}
+
+// Security alert information
+message SecurityReportAlert {
+    // Affected interface enum
+    enum AffectedInterface {
+        AFFECTED_INTERFACE_UNSPECIFIED = 0;
+        KAFKA = 1;
+        RPC = 2;
+        ADMIN = 3;
+        SCHEMA_REGISTRY = 4;
+        SCHEMA_REGISTRY_CLIENT = 5;
+        PANDAPROXY = 6;
+        AUDIT_LOG_CLIENT = 7;
+    }
+    
+    // Issue type enum
+    enum Issue {
+        ISSUE_UNSPECIFIED = 0;
+        NO_TLS = 1;
+        NO_AUTHN = 2;
+        NO_AUTHZ = 3;
+        SASL_PLAIN = 4;
+        PP_CONFIGURED_CLIENT = 5;
+        INSECURE_MIN_TLS_VERSION = 6;
+        TLS_RENEGOTIATION = 7;
+    }
+    
+    // Affected interface
+    AffectedInterface affected_interface = 1;
+    
+    // Listener name (optional)
+    string listener_name = 2;
+    
+    // Issue type
+    Issue issue = 3;
+    
+    // Human-readable description
+    string description = 4;
+}
