@@ -16,14 +16,14 @@ syntax = "proto3";
 
 package redpanda.core.admin.v2;
 
+import "google/api/field_behavior.proto";
 import "proto/redpanda/core/pbgen/options.proto";
 import "proto/redpanda/core/pbgen/rpc.proto";
 
 option (pbgen.cpp_namespace) = "proto::admin";
 
-// The SecurityService provides user and role management functionality
-service SecurityService {
-    // POST /v1/security/user
+service UserService {
+    // POST /v1/security/users
     // Create user
     rpc CreateUser(CreateUserRequest) returns (CreateUserResponse) {
         option (pbgen.rpc) = {
@@ -54,6 +54,11 @@ service SecurityService {
             authz: SUPERUSER
         };
     }
+}
+
+
+// The SecurityService provides user and role management functionality
+service SecurityService {
 
     // GET /v1/security/users/roles
     // List roles assignments for a user
@@ -186,7 +191,10 @@ message ScramCredential {
     Algorithm algorithm = 1;
     
     // The user's password
-    string password = 2 [debug_redact = true];
+    string password = 2 [
+        debug_redact = true,
+        (google.api.field_behavior) = INPUT_ONLY
+    ];
 }
 
 // A role description
@@ -227,10 +235,9 @@ message ListUsersResponse {
 message CreateUserRequest {
     // The user to create
     User user = 1;
-    
-    // The ID to use for the user, which will become the final component of
-    // the user's resource name. If not specified, the server will generate one.
-    string user_id = 2;
+
+    // The user's SCRAM credentials
+    ScramCredential credential = 2;
 }
 
 // Response message for creating a user (AIP-133)
