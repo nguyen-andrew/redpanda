@@ -20,7 +20,7 @@ import "google/api/field_behavior.proto";
 import "proto/redpanda/core/pbgen/options.proto";
 import "proto/redpanda/core/pbgen/rpc.proto";
 
-option (pbgen.cpp_namespace) = "proto::admin";
+option (pbgen.cpp_namespace) = "proto::admin::security";
 
 service UserService {
     // POST /v1/security/users
@@ -274,13 +274,13 @@ message UpdateUserResponse {
 }
 
 // Request message for listing user roles
-message ListUserRolesRequest {
+message ListCurrentUserRolesRequest {
     // Return only roles whose names match this substring
     string filter = 1;
 }
 
 // Response message for listing user roles
-message ListUserRolesResponse {
+message ListCurrentUserRolesResponse {
     // List of roles assigned to the user
     repeated RoleDescription roles = 1;
 }
@@ -331,6 +331,8 @@ message ListRolesRequest {
     
     // Principal type - applies to `principal` parameter. Ignored if `principal` is not set
     optional string principal_type = 3;
+
+    // Note: Maybe combine principal and principal_type as a filter?
 }
 
 // Response message for listing roles
