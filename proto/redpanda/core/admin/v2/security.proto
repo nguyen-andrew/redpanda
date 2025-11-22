@@ -56,6 +56,63 @@ service UserService {
     }
 }
 
+service RoleService {
+    // GET /v1/security/roles – List roles
+    rpc ListRoles(ListRolesRequest) returns (ListRolesResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // GET /v1/security/users/roles
+    // List roles assignments for a user
+    rpc ListCurrentUserRoles(ListCurrentUserRolesRequest) returns (ListCurrentUserRolesResponse) {
+        option (pbgen.rpc) = {
+            authz: USER
+        };
+    }
+
+    // POST /v1/security/roles
+    // Create a role
+    rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // GET /v1/security/roles/{role}
+    // Get the specified role
+    rpc GetRole(GetRoleRequest) returns (GetRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // DELETE /v1/security/roles/{role}
+    // Remove a role by name
+    rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // GET /v1/security/roles/{role}/members
+    // List members assigned a given role
+    rpc ListRoleMemberships(ListRoleMembershipsRequest) returns (ListRoleMembershipsResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // POST /v1/security/roles/{role}/members
+    // Update role membership
+    rpc UpdateRoleMembers(UpdateRoleMembersRequest) returns (UpdateRoleMembersResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+}
+
 
 // The SecurityService provides user and role management functionality
 service SecurityService {
@@ -95,55 +152,6 @@ service SecurityService {
         };
     }
 
-
-    // GET /v1/security/roles – List roles
-    rpc ListRoles(ListRolesRequest) returns (ListRolesResponse) {
-        option (pbgen.rpc) = {
-            authz: SUPERUSER
-        };
-    }
-
-    // POST /v1/security/roles
-    // Create a role
-    rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse) {
-        option (pbgen.rpc) = {
-            authz: SUPERUSER
-        };
-    }
-
-    // GET /v1/security/roles/{role}
-    // Get the specified role
-    rpc GetRole(GetRoleRequest) returns (GetRoleResponse) {
-        option (pbgen.rpc) = {
-            authz: SUPERUSER
-        };
-    }
-
-    // DELETE /v1/security/roles/{role}
-    // Remove a role by name
-    rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse) {
-        option (pbgen.rpc) = {
-            authz: SUPERUSER
-        };
-    }
-
-    // GET /v1/security/roles/{role}/members
-    // List members assigned a given role
-    rpc ListRoleMembers(ListRoleMembersRequest) returns (ListRoleMembersResponse) {
-        option (pbgen.rpc) = {
-            authz: SUPERUSER
-        };
-    }
-
-    // POST /v1/security/roles/{role}/members
-    // Update role membership
-    rpc UpdateRoleMembers(UpdateRoleMembersRequest) returns (UpdateRoleMembersResponse) {
-        option (pbgen.rpc) = {
-            authz: SUPERUSER
-        };
-    }
-
-
     // GET /v1/security/report
     // Get comprehensive security report for all interfaces
     rpc GetSecurityReport(GetSecurityReportRequest) returns (GetSecurityReportResponse) {
@@ -160,49 +168,77 @@ service SecurityService {
     
 }
 
-// A user resource
+// =============================================
+/* Resources */
+// =============================================
+// A User resource
 message User {
-    // The user's name. Format: users/{user_id}
-    string name = 1;
+    option (google.api.resource) = {
+        type: "redpanda.core.admin.UserService/User"
+        pattern: "users/{user}"
+    };
     
-    // The user's unique identifier
-    string user_id = 2;
+    // Resource name
+    // Format: users/{user}
+    string name = 1 [(google.api.field_behavior) = IDENTIFIER];
+
+    // The user's name
+    string user_name = 2 [(google.api.field_behavior) = REQUIRED];
     
     // Whether this is an ephemeral user
-    bool ephemeral = 3;
-    
-    // The user's password (only used in create/update requests)
-    optional string password = 4;
-    
-    // Additional user metadata
-    map<string, string> metadata = 5;
+    bool ephemeral = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
-// SCRAM credential for user authentication
-message ScramCredential {
-    // The SCRAM algorithm to use
-    enum Algorithm {
-        ALGORITHM_UNSPECIFIED = 0;
-        SCRAM_SHA_256 = 1;
-        SCRAM_SHA_512 = 2;
-    }
-    
-    // The SCRAM algorithm
-    Algorithm algorithm = 1;
-    
-    // The user's password
-    string password = 2 [
-        debug_redact = true,
-        (google.api.field_behavior) = INPUT_ONLY
+// A Role resource
+message Role {
+    option (google.api.resource) = {
+        type: "redpanda.core.admin.RoleService/Role"
+        pattern: "roles/{role}"
+    };
+
+    // Resource name
+    // Format: roles/{role}
+    string name = 1 [(google.api.field_behavior) = IDENTIFIER];
+
+    // The role's name
+    string role_name = 2 [(google.api.field_behavior) = REQUIRED];
+
+    // The role bindings associated with this role
+    repeated string bindings = 3 [
+        (google.api.field_behavior) = OUTPUT_ONLY,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.RoleService/RoleBinding"
+        }
     ];
 }
 
-// A role description
-message RoleDescription {
-    // The role's name
-    string name = 1;
+// A RoleBinding resource
+// A binding between a role and a principal.
+message RoleBinding {
+    option (google.api.resource) = {
+        type: "redpanda.core.admin.RoleService/RoleBinding"
+        pattern: "roles/{role}/bindings/{role_binding}"
+    };
+
+    // Resource name
+    // Format: roles/{role}/bindings/{role_binding}
+    string name = 1 [(google.api.field_behavior) = IDENTIFIER];
+
+    // The name of the role being assigned.
+    string role = 2 [
+        (google.api.field_behavior) = REQUIRED,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.RoleService/Role"
+        }
+    ];
+
+    // The principal receiving the role.
+    Principal principal = 3;
 }
 
+// =============================================
+/* RPC Requests and Responses */
+// =============================================
 // Request message for listing users (AIP-132)
 message ListUsersRequest {
     // The maximum number of users to return. The service may return fewer than this value.
@@ -236,6 +272,7 @@ message CreateUserRequest {
     // The user to create
     User user = 1;
 
+    // TODO: Should this be in the User message instead?
     // The user's SCRAM credentials
     ScramCredential credential = 2;
 }
@@ -249,8 +286,13 @@ message CreateUserResponse {
 // Request message for deleting a user (AIP-135)
 message DeleteUserRequest {
     // The name of the user to delete.
-    // Format: users/{user_id}
-    string name = 1;
+    // Format: users/{user}
+    string name = 1 [
+        (google.api.field_behavior) = REQUIRED,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.UserService/User"
+        }
+    ];
 }
 
 // Response message for deleting a user (AIP-135)
@@ -261,9 +303,15 @@ message DeleteUserResponse {
 // Request message for updating a user (AIP-134)
 message UpdateUserRequest {
     // The name of the user to update.
-    // Format: users/{user_id}
-    string name = 1;
+    // Format: users/{user}
+    string name = 1 [
+        (google.api.field_behavior) = REQUIRED,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.UserService/User"
+        }
+    ];
     
+    // TODO: Should this be in the User message instead?
     // The SCRAM credential to update for the user
     ScramCredential credential = 2;
 }
@@ -282,7 +330,7 @@ message ListCurrentUserRolesRequest {
 // Response message for listing user roles
 message ListCurrentUserRolesResponse {
     // List of roles assigned to the user
-    repeated RoleDescription roles = 1;
+    repeated Role roles = 1;
 }
 
 // Request message for OIDC whoami endpoint
@@ -338,30 +386,53 @@ message ListRolesRequest {
 // Response message for listing roles
 message ListRolesResponse {
     // List of roles
-    repeated RoleDescription roles = 1;
+    repeated Role roles = 1;
 }
 
 // Request message for creating a role
 message CreateRoleRequest {
     // The role name to create
-    string role = 1;
+    Role role = 1;
 }
 
 // Response message for creating a role
 message CreateRoleResponse {
-    // The created role name
-    string role = 1;
+    // The created role
+    Role role = 1;
 }
 
-// A role member
-message RoleMember {
+// =============================================
+/* Other Messages */
+// =============================================
+
+// SCRAM credential for user authentication
+message ScramCredential {
+    // The SCRAM algorithm to use
+    enum Algorithm {
+        ALGORITHM_UNSPECIFIED = 0;
+        SCRAM_SHA_256 = 1;
+        SCRAM_SHA_512 = 2;
+    }
+    
+    // The SCRAM algorithm
+    Algorithm algorithm = 1;
+    
+    // The user's password
+    string password = 2 [
+        debug_redact = true,
+        (google.api.field_behavior) = INPUT_ONLY
+    ];
+}
+
+// A principal
+message Principal {
     // The principal type enumeration
     enum PrincipalType {
         PRINCIPAL_TYPE_UNSPECIFIED = 0;
         USER = 1;
     }
     
-    // The member name
+    // The principal name
     string name = 1;
     
     // The principal type
@@ -369,30 +440,44 @@ message RoleMember {
 }
 
 // A complete role with its members
-message Role {
-    // The role name
-    string name = 1;
+message RoleMemberships {
+    // The role
+    Role role = 1;
     
     // List of members assigned to this role
-    repeated RoleMember members = 2;
+    repeated Principal members = 2;
 }
 
 // Request message for getting a role
 message GetRoleRequest {
-    // The role name to retrieve
-    string role = 1;
+    // The role to retrieve
+    string name = 1 [
+        (google.api.field_behavior) = REQUIRED,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.RoleService/Role"
+        }
+    ];
 }
 
 // Response message for getting a role
 message GetRoleResponse {
-    // The role details
+    // The role
     Role role = 1;
+    
+    // TODO: Maybe the role includes a list of bindings instead?
+    // List of members assigned to this role
+    // repeated RoleMember members = 2;
 }
 
 // Request message for deleting a role
 message DeleteRoleRequest {
-    // The role name to delete
-    string role = 1;
+    // The role to delete
+    string name = 1 [
+        (google.api.field_behavior) = REQUIRED,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.RoleService/Role"
+        }
+    ];
 }
 
 // Response message for deleting a role
@@ -401,14 +486,17 @@ message DeleteRoleResponse {
     // Errors are handled via standard gRPC error responses
 }
 
-// Request message for listing role members
-message ListRoleMembersRequest {
+// Request message for listing role memberships
+message ListRoleMembershipsRequest {
     // The role name to list members for
     string role = 1;
+
+    // Return only members whose names match this substring
+    optional string filter = 2;
 }
 
-// Response message for listing role members
-message ListRoleMembersResponse {
+// Response message for listing role memberships
+message ListRoleMembershipsResponse {
     // List of members assigned to the role
     repeated RoleMember members = 1;
 }
