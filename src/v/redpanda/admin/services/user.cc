@@ -9,6 +9,7 @@
  * by the Apache License, Version 2.0
  */
 
+#include "base/vlog.h"
 #include "redpanda/admin/services/user.h"
 
 #include "serde/protobuf/rpc.h"
@@ -30,6 +31,7 @@ ss::logger userlog{"admin_api_server/user_service"};
 seastar::future<proto::admin::security::create_user_response> 
 user_service_impl::create_user(serde::pb::rpc::context ctx, proto::admin::security::create_user_request req) {
     (void)ctx;
+    vlog(userlog.info, "create_user: {}", req);
     proto::admin::security::create_user_response resp;
     resp.set_user(std::move(req.get_user()));
     co_return resp;
