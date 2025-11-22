@@ -21,7 +21,6 @@ import "google/api/resource.proto";
 import "google/protobuf/field_mask.proto";
 import "proto/redpanda/core/pbgen/options.proto";
 import "proto/redpanda/core/pbgen/rpc.proto";
-import "proto/redpanda/core/admin/v2/shadow_link.proto";
 
 option (pbgen.cpp_namespace) = "proto::admin::security";
 
@@ -54,9 +53,6 @@ message User {
     
     // Whether this is an ephemeral user
     bool ephemeral = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
-
-    // The user's SCRAM credentials
-    ScramCredential credential = 4 [(google.api.field_behavior) = INPUT_ONLY];
 }
 
 // =============================================
@@ -66,6 +62,10 @@ message User {
 message CreateUserRequest {
     // The user to create
     User user = 1;
+
+    // ❓: Should this be in the User message instead?
+    // The user's SCRAM credentials
+    ScramCredential credential = 2 [(google.api.field_behavior) = INPUT_ONLY];
 }
 
 // Response message for creating a user (AIP-133)
@@ -80,15 +80,15 @@ message CreateUserResponse {
 
 // SCRAM credential for user authentication
 message ScramCredential {
-    // // The SCRAM algorithm to use
-    // enum Algorithm {
-    //     ALGORITHM_UNSPECIFIED = 0;
-    //     SCRAM_SHA_256 = 1;
-    //     SCRAM_SHA_512 = 2;
-    // }
+    // The SCRAM algorithm to use
+    enum Algorithm {
+        ALGORITHM_UNSPECIFIED = 0;
+        SCRAM_SHA_256 = 1;
+        SCRAM_SHA_512 = 2;
+    }
     
     // The SCRAM algorithm
-    ScramMechanism algorithm = 1;
+    Algorithm algorithm = 1;
     
     // The user's password
     string password = 2 [
