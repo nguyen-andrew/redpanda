@@ -104,8 +104,10 @@ proto_library(
     deps = [
         "//proto/redpanda/core/pbgen:options_proto",
         "//proto/redpanda/core/pbgen:rpc_proto",
-        "@googleapis//google/api:resource_proto",
+        ":shadow_link_proto",
         "@googleapis//google/api:field_behavior_proto",
+        "@googleapis//google/api:resource_proto",
+        "@protobuf//:field_mask_proto",
     ],
 )
 
@@ -115,5 +117,8 @@ redpanda_proto_library(
         ":security_proto",
     ],
     visibility = ["//visibility:public"],
-    deps = [],
+    deps = [
+        "//src/v/serde/protobuf:field_mask",
+        ":shadow_link_redpanda_proto",
+    ],
 )

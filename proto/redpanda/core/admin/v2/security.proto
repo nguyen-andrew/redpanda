@@ -18,8 +18,10 @@ package redpanda.core.admin.v2;
 
 import "google/api/field_behavior.proto";
 import "google/api/resource.proto";
+import "google/protobuf/field_mask.proto";
 import "proto/redpanda/core/pbgen/options.proto";
 import "proto/redpanda/core/pbgen/rpc.proto";
+import "proto/redpanda/core/admin/v2/shadow_link.proto";
 
 option (pbgen.cpp_namespace) = "proto::admin::security";
 
@@ -27,30 +29,6 @@ service UserService {
     // POST /v1/security/users
     // Create user
     rpc CreateUser(CreateUserRequest) returns (CreateUserResponse) {
-        option (pbgen.rpc) = {
-            authz: SUPERUSER
-        };
-    }
-
-    // GET /v1/security/users
-    // List users
-    rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {
-        option (pbgen.rpc) = {
-            authz: SUPERUSER
-        };
-    }
-
-    // DELETE /v1/security/users/{user}
-    // Delete user
-    rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {
-        option (pbgen.rpc) = {
-            authz: SUPERUSER
-        };
-    }
-
-    // PUT /v1/security/users/{user}
-    // Update user
-    rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse) {
         option (pbgen.rpc) = {
             authz: SUPERUSER
         };
@@ -76,47 +54,18 @@ message User {
     
     // Whether this is an ephemeral user
     bool ephemeral = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+    // The user's SCRAM credentials
+    ScramCredential credential = 4 [(google.api.field_behavior) = INPUT_ONLY];
 }
 
 // =============================================
 /* RPC Requests and Responses */
 // =============================================
-// Request message for listing users (AIP-132)
-message ListUsersRequest {
-    // The maximum number of users to return. The service may return fewer than this value.
-    // If unspecified, at most 50 users will be returned.
-    int32 page_size = 1;
-    
-    // A page token, received from a previous `ListUsers` call.
-    // Provide this to retrieve the subsequent page.
-    string page_token = 2;
-    
-    // A filter expression that filters users listed in the response.
-    // The expression must follow the syntax outlined in AIP-160.
-    string filter = 3;
-    
-    // If true, include ephemeral users in the response
-    bool include_ephemeral = 4;
-}
-
-// Response message for listing users (AIP-132)
-message ListUsersResponse {
-    // The users from the specified collection
-    repeated User users = 1;
-    
-    // A token, which can be sent as `page_token` to retrieve the next page.
-    // If this field is omitted, there are no subsequent pages.
-    string next_page_token = 2;
-}
-
 // Request message for creating a user (AIP-133)
 message CreateUserRequest {
     // The user to create
     User user = 1;
-
-    // TODO: Should this be in the User message instead?
-    // The user's SCRAM credentials
-    ScramCredential credential = 2;
 }
 
 // Response message for creating a user (AIP-133)
@@ -125,78 +74,25 @@ message CreateUserResponse {
     User user = 1;
 }
 
-// Request message for deleting a user (AIP-135)
-message DeleteUserRequest {
-    // The name of the user to delete.
-    // Format: users/{user}
-    string name = 1 [
-        (google.api.field_behavior) = REQUIRED,
-        (google.api.resource_reference) = {
-            type: "redpanda.core.admin.UserService/User"
-        }
-    ];
-}
-
-// Response message for deleting a user (AIP-135)
-message DeleteUserResponse {
-    // Empty response for successful deletion
-}
-
-// Request message for updating a user (AIP-134)
-message UpdateUserRequest {
-    // The name of the user to update.
-    // Format: users/{user}
-    string name = 1 [
-        (google.api.field_behavior) = REQUIRED,
-        (google.api.resource_reference) = {
-            type: "redpanda.core.admin.UserService/User"
-        }
-    ];
-    
-    // TODO: Should this be in the User message instead?
-    // The SCRAM credential to update for the user
-    ScramCredential credential = 2;
-}
-
-// Response message for updating a user (AIP-134)
-message UpdateUserResponse {
-    // Empty response for successful update
-}
-
 // =============================================
 /* Other Messages */
 // =============================================
 
 // SCRAM credential for user authentication
 message ScramCredential {
-    // The SCRAM algorithm to use
-    enum Algorithm {
-        ALGORITHM_UNSPECIFIED = 0;
-        SCRAM_SHA_256 = 1;
-        SCRAM_SHA_512 = 2;
-    }
+    // // The SCRAM algorithm to use
+    // enum Algorithm {
+    //     ALGORITHM_UNSPECIFIED = 0;
+    //     SCRAM_SHA_256 = 1;
+    //     SCRAM_SHA_512 = 2;
+    // }
     
     // The SCRAM algorithm
-    Algorithm algorithm = 1;
+    ScramMechanism algorithm = 1;
     
     // The user's password
     string password = 2 [
         debug_redact = true,
         (google.api.field_behavior) = INPUT_ONLY
     ];
-}
-
-// A principal
-message Principal {
-    // The principal type enumeration
-    enum PrincipalType {
-        PRINCIPAL_TYPE_UNSPECIFIED = 0;
-        USER = 1;
-    }
-    
-    // The principal name
-    string name = 1;
-    
-    // The principal type
-    PrincipalType principal_type = 2;
 }
