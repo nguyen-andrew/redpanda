@@ -32,9 +32,9 @@ public:
   // DELETE /v1/security/users/{user}
   // Delete user
   seastar::future<proto::admin::security::delete_user_response> delete_user(serde::pb::rpc::context, proto::admin::security::delete_user_request) override;
-  // // PUT /v1/security/users/{user}
-  // // Update user
-  // seastar::future<proto::admin::security::update_user_response> update_user(serde::pb::rpc::context, proto::admin::security::update_user_request) override;
+  // PUT /v1/security/users/{user}
+  // Update user
+  seastar::future<proto::admin::security::update_user_response> update_user(serde::pb::rpc::context, proto::admin::security::update_user_request) override;
 
 
 private:

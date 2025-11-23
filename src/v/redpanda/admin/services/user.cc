@@ -57,4 +57,16 @@ seastar::future<proto::admin::security::delete_user_response> user_service_impl:
       co_return resp;
 }
 
+// PUT /v1/security/users/{user}
+// Update user
+// References:
+// - https://google.aip.dev/134
+seastar::future<proto::admin::security::update_user_response> user_service_impl::update_user(serde::pb::rpc::context ctx, proto::admin::security::update_user_request req) {
+    (void)ctx;
+    vlog(userlog.info, "update_user: {}", req);
+    proto::admin::security::update_user_response resp;
+    // Handle user update logic
+    co_return resp;
+}
+
 } // namespace admin::security
