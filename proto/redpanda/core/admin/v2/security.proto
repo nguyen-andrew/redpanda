@@ -45,7 +45,8 @@ message User {
     };
     
     // Resource name
-    // Format: users/{user}
+    // Format: users/{name}
+    // IDENTIFIER = OUTPUT_ONLY & IMMUTABLE
     string name = 1 [(google.api.field_behavior) = IDENTIFIER];
 
     // The user's name
