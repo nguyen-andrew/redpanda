@@ -50,9 +50,6 @@ message User {
 
     // The user's name
     string user_name = 2 [(google.api.field_behavior) = REQUIRED];
-    
-    // Whether this is an ephemeral user
-    bool ephemeral = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // =============================================
