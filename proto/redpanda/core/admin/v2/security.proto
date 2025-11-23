@@ -66,6 +66,18 @@ service UserService {
     }
 }
 
+service RoleService {
+    // POST /v1/security/roles
+    // Create a role
+    // References:
+    // - https://google.aip.dev/133
+    rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+}
+
 // =============================================
 /* Resources */
 // =============================================
@@ -91,6 +103,33 @@ message User {
 
     // The user's name
     string user_name = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+// A Role resource
+// References:
+// - https://google.aip.dev/122
+message Role {
+    // References:
+    // - https://google.aip.dev/123
+    option (google.api.resource) = {
+        type: "redpanda.core.admin.RoleService/Role"
+        pattern: "roles/{role}"
+    };
+
+    // Resource name
+    // Format: roles/{role}
+    // IDENTIFIER = OUTPUT_ONLY & IMMUTABLE
+    // References:
+    // - https://google.aip.dev/122#fields-representing-resource-names
+    // - https://google.aip.dev/148#resource-names-and-ids
+    // - https://google.aip.dev/203#identifier
+    string name = 1 [(google.api.field_behavior) = IDENTIFIER];
+
+    // The role's name
+    string role_name = 2 [(google.api.field_behavior) = REQUIRED];
+
+    // The members associated with this role
+    repeated RoleMember members = 3;
 }
 
 // =============================================
@@ -210,6 +249,22 @@ message UpdateUserResponse {
     User user = 1;
 }
 
+// Request message for creating a role
+// References:
+// - https://google.aip.dev/133#request-message
+message CreateRoleRequest {
+    // The role to create
+    Role role = 1;
+}
+
+// Response message for creating a role
+// References:
+// - https://google.aip.dev/133
+message CreateRoleResponse {
+    // The created role
+    Role role = 1;
+}
+
 // =============================================
 /* Other Messages */
 // =============================================
@@ -233,4 +288,18 @@ message ScramCredential {
         debug_redact = true,
         (google.api.field_behavior) = INPUT_ONLY
     ];
+}
+
+// A RoleMember represents a principal associated with a role
+message RoleMember {
+    enum PrincipalType {
+        PRINCIPAL_TYPE_UNSPECIFIED = 0;
+        USER = 1;
+    }
+
+    // The role member's name.
+    string member_name = 1;
+
+    // The role member's principal type.
+    PrincipalType principal_type = 2;
 }

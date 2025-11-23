@@ -66,3 +66,23 @@ redpanda_cc_library(
         "@seastar",
     ],
 )
+
+redpanda_cc_library(
+    name = "role",
+    srcs = ["role.cc"],
+    hdrs = ["role.h"],
+    implementation_deps = [
+        # "//src/v/redpanda/admin/proxy:context",
+    ],
+    deps = [
+        ":utils",
+        "//proto/redpanda/core/admin/v2:security_redpanda_proto",
+        "//src/v/base",
+        # "//src/v/features",
+        # "//src/v/redpanda/admin:kafka_connections_service",
+        # "//src/v/redpanda/admin/proxy:client",
+        # "//src/v/resource_mgmt:available_memory",
+        "//src/v/serde/protobuf:rpc",
+        "@seastar",
+    ],
+)
