@@ -27,6 +27,8 @@ option (pbgen.cpp_namespace) = "proto::admin::security";
 service UserService {
     // POST /v1/security/users
     // Create user
+    // References:
+    // - https://google.aip.dev/133
     rpc CreateUser(CreateUserRequest) returns (CreateUserResponse) {
         option (pbgen.rpc) = {
             authz: SUPERUSER
@@ -38,7 +40,11 @@ service UserService {
 /* Resources */
 // =============================================
 // A User resource
+// References:
+// - https://google.aip.dev/122
 message User {
+    // References:
+    // - https://google.aip.dev/123
     option (google.api.resource) = {
         type: "redpanda.core.admin.UserService/User"
         pattern: "users/{user}"
@@ -47,6 +53,10 @@ message User {
     // Resource name
     // Format: users/{name}
     // IDENTIFIER = OUTPUT_ONLY & IMMUTABLE
+    // References:
+    // - https://google.aip.dev/122#fields-representing-resource-names
+    // - https://google.aip.dev/148#resource-names-and-ids
+    // - https://google.aip.dev/203#identifier
     string name = 1 [(google.api.field_behavior) = IDENTIFIER];
 
     // The user's name
@@ -56,7 +66,9 @@ message User {
 // =============================================
 /* RPC Requests and Responses */
 // =============================================
-// Request message for creating a user (AIP-133)
+// Request message for creating a user
+// References:
+// - https://google.aip.dev/133#request-message
 message CreateUserRequest {
     // The user to create
     User user = 1;
@@ -66,7 +78,9 @@ message CreateUserRequest {
     ScramCredential credential = 2 [(google.api.field_behavior) = INPUT_ONLY];
 }
 
-// Response message for creating a user (AIP-133)
+// Response message for creating a user
+// References:
+// - https://google.aip.dev/133
 message CreateUserResponse {
     // The created user
     User user = 1;
@@ -89,6 +103,8 @@ message ScramCredential {
     Algorithm algorithm = 1;
     
     // The user's password
+    // References:
+    // - https://google.aip.dev/203#input-only
     string password = 2 [
         debug_redact = true,
         (google.api.field_behavior) = INPUT_ONLY
