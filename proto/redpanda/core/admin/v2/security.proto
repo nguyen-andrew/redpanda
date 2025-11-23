@@ -34,6 +34,16 @@ service UserService {
             authz: SUPERUSER
         };
     }
+
+    // GET /v1/security/users
+    // List users
+    // References:
+    // - https://google.aip.dev/132
+    rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
 }
 
 // =============================================
@@ -84,6 +94,51 @@ message CreateUserRequest {
 message CreateUserResponse {
     // The created user
     User user = 1;
+}
+
+// Request message for listing users
+// References:
+// - https://google.aip.dev/132#request-message
+message ListUsersRequest {
+    // The maximum number of users to return. The service may return fewer than
+    // this value. If unspecified, at most 50 users will be returned. Note that 
+    // paging is currently not fully supported, and this field only acts as a 
+    // limit for the first page of data returned. Subsequent pages of data cannot
+    // be requested.
+    // References:
+    // - https://google.aip.dev/158
+    int32 page_size = 1;
+    
+    // A filter expression that filters users listed in the response.
+    // The expression must follow the syntax outlined in AIP-160.
+    // References:
+    // - https://google.aip.dev/132#filtering
+    // - https://google.aip.dev/160
+    string filter = 2;
+
+    // Field-based ordering specification following AIP-132 syntax.
+    // Supports multiple fields with `asc`/`desc` direction indicators.
+    // Example:
+    // - `user_name desc` - alphabetical order by user name, descending
+    // References:
+    // - https://google.aip.dev/132#ordering
+    string order_by = 3;
+
+    // The number of users to skip before starting to collect the result set.
+    // References:
+    // - https://google.aip.dev/158#skipping-results
+    int64 skip = 4;
+    
+    // If true, include ephemeral users in the response
+    bool include_ephemeral = 5;
+}
+
+// Response message for listing users
+// References:
+// - https://google.aip.dev/132#response-message
+message ListUsersResponse {
+    // The users from the specified collection
+    repeated User users = 1;
 }
 
 // =============================================

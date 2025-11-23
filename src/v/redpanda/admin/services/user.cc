@@ -37,4 +37,12 @@ user_service_impl::create_user(serde::pb::rpc::context ctx, proto::admin::securi
     co_return resp;
 }
 
+seastar::future<proto::admin::security::list_users_response> user_service_impl::list_users(serde::pb::rpc::context ctx, proto::admin::security::list_users_request req) {
+    (void)ctx;
+    vlog(userlog.info, "list_users: {}", req);
+    proto::admin::security::list_users_response resp;
+    // Populate the response with the list of users
+    co_return resp;
+}
+
 } // namespace admin::security
