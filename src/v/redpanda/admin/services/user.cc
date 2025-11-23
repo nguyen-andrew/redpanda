@@ -45,4 +45,16 @@ seastar::future<proto::admin::security::list_users_response> user_service_impl::
     co_return resp;
 }
 
+// DELETE /v1/security/users/{user}
+// Delete user
+// References:
+// - https://google.aip.dev/135
+seastar::future<proto::admin::security::delete_user_response> user_service_impl::delete_user(serde::pb::rpc::context ctx, proto::admin::security::delete_user_request req) {
+      (void)ctx;
+      vlog(userlog.info, "delete_user: {}", req);
+      proto::admin::security::delete_user_response resp;
+      // Handle user deletion logic
+      co_return resp;
+}
+
 } // namespace admin::security

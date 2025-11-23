@@ -44,6 +44,16 @@ service UserService {
             authz: SUPERUSER
         };
     }
+
+    // DELETE /v1/security/users/{user}
+    // Delete user
+    // References:
+    // - https://google.aip.dev/135
+    rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
 }
 
 // =============================================
@@ -139,6 +149,27 @@ message ListUsersRequest {
 message ListUsersResponse {
     // The users from the specified collection
     repeated User users = 1;
+}
+
+// Request message for deleting a user
+// References:
+// - https://google.aip.dev/135#request-message
+message DeleteUserRequest {
+    // The name of the user to delete.
+    // Format: users/{user}
+    string name = 1 [
+        (google.api.field_behavior) = REQUIRED,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.UserService/User"
+        }
+    ];
+}
+
+// Response message for deleting a user
+// References:
+// - https://google.aip.dev/135
+message DeleteUserResponse {
+    // Empty response for successful deletion
 }
 
 // =============================================

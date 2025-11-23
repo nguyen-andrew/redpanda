@@ -29,9 +29,9 @@ public:
   // GET /v1/security/users
   // List users
   seastar::future<proto::admin::security::list_users_response> list_users(serde::pb::rpc::context, proto::admin::security::list_users_request) override;
-  // // DELETE /v1/security/users/{user}
-  // // Delete user
-  // seastar::future<proto::admin::security::delete_user_response> delete_user(serde::pb::rpc::context, proto::admin::security::delete_user_request) override;
+  // DELETE /v1/security/users/{user}
+  // Delete user
+  seastar::future<proto::admin::security::delete_user_response> delete_user(serde::pb::rpc::context, proto::admin::security::delete_user_request) override;
   // // PUT /v1/security/users/{user}
   // // Update user
   // seastar::future<proto::admin::security::update_user_response> update_user(serde::pb::rpc::context, proto::admin::security::update_user_request) override;
