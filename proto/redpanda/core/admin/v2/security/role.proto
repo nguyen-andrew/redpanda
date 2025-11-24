@@ -1,0 +1,321 @@
+// Copyright 2025 Redpanda Data, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package redpanda.core.admin.v2.security.role;
+
+import "google/api/field_behavior.proto";
+import "google/api/resource.proto";
+import "google/protobuf/field_mask.proto";
+import "proto/redpanda/core/pbgen/options.proto";
+import "proto/redpanda/core/pbgen/rpc.proto";
+
+option (pbgen.cpp_namespace) = "proto::admin::security::role";
+
+service RoleService {
+    // POST /v1/security/roles
+    // Create a role
+    // References:
+    // - https://google.aip.dev/133
+    rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // GET /v1/security/roles/{role}
+    // Get role
+    // References:
+    // - https://google.aip.dev/131
+    rpc GetRole(GetRoleRequest) returns (GetRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // GET /v1/security/roles
+    // List roles
+    // References:
+    // - https://google.aip.dev/132
+    rpc ListRoles(ListRolesRequest) returns (ListRolesResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+    
+    // GET /v1/security/users/roles
+    // List roles for the current user
+    // References:
+    // - https://google.aip.dev/132
+    rpc ListRolesForCurrentUser(ListRolesForCurrentUserRequest) returns (ListRolesForCurrentUserResponse) {
+        option (pbgen.rpc) = {
+            authz: USER
+        };
+    }
+
+    // DELETE /v1/security/roles/{role}
+    // Remove a role by name
+    // References:
+    // - https://google.aip.dev/135
+    rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    // PUT /v1/security/roles/{role}
+    // Update role
+    // References:
+    // - https://google.aip.dev/134
+    rpc UpdateRole(UpdateRoleRequest) returns (UpdateRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+}
+
+// =============================================
+/* Resources */
+// =============================================
+// A Role resource
+// References:
+// - https://google.aip.dev/122
+message Role {
+    // References:
+    // - https://google.aip.dev/123
+    option (google.api.resource) = {
+        type: "redpanda.core.admin.RoleService/Role"
+        pattern: "roles/{role}"
+    };
+
+    // Resource name
+    // Format: roles/{role}
+    // IDENTIFIER = OUTPUT_ONLY & IMMUTABLE
+    // References:
+    // - https://google.aip.dev/122#fields-representing-resource-names
+    // - https://google.aip.dev/148#resource-names-and-ids
+    // - https://google.aip.dev/203#identifier
+    string name = 1 [(google.api.field_behavior) = IDENTIFIER];
+
+    // The role's name
+    string role_name = 2 [(google.api.field_behavior) = REQUIRED];
+
+    // The members associated with this role
+    repeated RoleMember members = 3;
+}
+
+// =============================================
+/* RPC Requests and Responses */
+// =============================================
+// Request message for creating a role
+// References:
+// - https://google.aip.dev/133#request-message
+message CreateRoleRequest {
+    // The role to create
+    Role role = 1;
+}
+
+// Response message for creating a role
+// References:
+// - https://google.aip.dev/133
+message CreateRoleResponse {
+    // The created role
+    Role role = 1;
+}
+
+// Request message for getting a role
+// References:
+// - https://google.aip.dev/131#request-message
+message GetRoleRequest {
+    // The name of the role to retrieve.
+    // Format: roles/{role}
+    string name = 1 [
+        (google.api.field_behavior) = REQUIRED,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.RoleService/Role"
+        }
+    ];
+}
+
+// Response message for getting a role
+// References:
+// - https://google.aip.dev/131
+message GetRoleResponse {
+    // The retrieved role
+    Role role = 1;
+}
+
+// Request message for listing roles
+// References:
+// - https://google.aip.dev/132#request-message
+message ListRolesRequest {
+    // The maximum number of roles to return. The service may return fewer than
+    // this value. If unspecified, at most 50 roles will be returned. Note that
+    // paging is currently not fully supported, and this field only acts as a 
+    // limit for the first page of data returned. Subsequent pages of data cannot
+    // be requested.
+    // References:
+    // - https://google.aip.dev/158
+    int32 page_size = 1;
+
+    // A filter expression that filters roles listed in the response.
+    // The expression must follow the syntax outlined in AIP-160.
+    // References:
+    // - https://google.aip.dev/132#filtering
+    // - https://google.aip.dev/160
+    string filter = 2;
+
+    // Field-based ordering specification following AIP-132 syntax.
+    // Supports multiple fields with `asc`/`desc` direction indicators.
+    // Example:
+    // - `role_name desc` - alphabetical order by role name, descending
+    // References:
+    // - https://google.aip.dev/132#ordering
+    string order_by = 3;
+
+    // The number of roles to skip before starting to collect the result set.
+    // References:
+    // - https://google.aip.dev/158#skipping-results
+    int64 skip = 4;
+}
+
+// Response message for listing roles
+// References:
+// - https://google.aip.dev/132#response-message
+message ListRolesResponse {
+    // The roles from the specified collection
+    repeated Role roles = 1;
+}
+
+// Request message for listing roles for the current user
+// References:
+// - https://google.aip.dev/132#request-message
+message ListRolesForCurrentUserRequest {
+    // The maximum number of roles to return. The service may return fewer than
+    // this value. If unspecified, at most 50 roles will be returned. Note that
+    // paging is currently not fully supported, and this field only acts as a 
+    // limit for the first page of data returned. Subsequent pages of data cannot
+    // be requested.
+    // References:
+    // - https://google.aip.dev/158
+    int32 page_size = 1;
+
+    // A filter expression that filters roles listed in the response.
+    // The expression must follow the syntax outlined in AIP-160.
+    // References:
+    // - https://google.aip.dev/132#filtering
+    // - https://google.aip.dev/160
+    string filter = 2;
+
+    // Field-based ordering specification following AIP-132 syntax.
+    // Supports multiple fields with `asc`/`desc` direction indicators.
+    // Example:
+    // - `role_name desc` - alphabetical order by role name, descending
+    // References:
+    // - https://google.aip.dev/132#ordering
+    string order_by = 3;
+
+    // The number of roles to skip before starting to collect the result set.
+    // References:
+    // - https://google.aip.dev/158#skipping-results
+    int64 skip = 4;
+}
+
+// Response message for listing roles for the current user
+// References:
+// - https://google.aip.dev/132#response-message
+message ListRolesForCurrentUserResponse {
+    // The roles from the specified collection.
+    // Note that the `members` field will be empty in this response.
+    repeated Role roles = 1;
+}
+
+// Request message for deleting a role
+// References:
+// - https://google.aip.dev/135#request-message
+message DeleteRoleRequest {
+    // The name of the role to delete.
+    // Format: roles/{role}
+    string name = 1 [
+        (google.api.field_behavior) = REQUIRED,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.RoleService/Role"
+        }
+    ];
+
+    // If true, delete all ACLs associated with this role
+    bool delete_acls = 2;
+}
+
+// Response message for deleting a role
+// References:
+// - https://google.aip.dev/135
+message DeleteRoleResponse {
+    // Empty response for successful deletion
+}
+
+// Request message for updating a role
+// References:
+// - http://google.aip.dev/134#request-message
+message UpdateRoleRequest {
+    // The role to update.
+    //
+    // The role's `name` field is used to identify the role to update.
+    // Format: roles/{role}
+    Role role = 1 [(google.api.field_behavior) = REQUIRED];
+
+    // The list of fields to update.
+    // References:
+    // - https://protobuf.dev/reference/protobuf/google.protobuf/#field-mask
+    google.protobuf.FieldMask update_mask = 2;
+
+    // If set to true, and the role is not found, a new role will be created.
+    // In this situation, `update_mask` is ignored.
+    // References:
+    // - https://google.aip.dev/134#create-or-update
+    bool allow_missing = 3;
+}
+
+// Response message for updating a role
+// References:
+// - http://google.aip.dev/134
+message UpdateRoleResponse {
+    // The updated role
+    Role role = 1;
+}
+
+// Request message for OidcWhoAmI
+// References:
+// - https://google.aip.dev/136
+message OidcWhoAmIRequest {
+    // Empty request
+}
+
+// =============================================
+/* Other Messages */
+// =============================================
+// A RoleMember represents a principal associated with a role
+message RoleMember {
+    enum PrincipalType {
+        PRINCIPAL_TYPE_UNSPECIFIED = 0;
+        USER = 1;
+    }
+
+    // The role member's name.
+    string member_name = 1;
+
+    // The role member's principal type.
+    PrincipalType principal_type = 2;
+}
