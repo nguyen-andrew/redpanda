@@ -86,6 +86,16 @@ service RoleService {
             authz: SUPERUSER
         };
     }
+
+    // GET /v1/security/roles
+    // List roles
+    // References:
+    // - https://google.aip.dev/132
+    rpc ListRoles(ListRolesRequest) returns (ListRolesResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
 }
 
 // =============================================
@@ -295,6 +305,48 @@ message GetRoleRequest {
 message GetRoleResponse {
     // The retrieved role
     Role role = 1;
+}
+
+// Request message for listing roles
+// References:
+// - https://google.aip.dev/132#request-message
+message ListRolesRequest {
+    // The maximum number of roles to return. The service may return fewer than
+    // this value. If unspecified, at most 50 roles will be returned. Note that
+    // paging is currently not fully supported, and this field only acts as a 
+    // limit for the first page of data returned. Subsequent pages of data cannot
+    // be requested.
+    // References:
+    // - https://google.aip.dev/158
+    int32 page_size = 1;
+
+    // A filter expression that filters roles listed in the response.
+    // The expression must follow the syntax outlined in AIP-160.
+    // References:
+    // - https://google.aip.dev/132#filtering
+    // - https://google.aip.dev/160
+    string filter = 2;
+
+    // Field-based ordering specification following AIP-132 syntax.
+    // Supports multiple fields with `asc`/`desc` direction indicators.
+    // Example:
+    // - `role_name desc` - alphabetical order by role name, descending
+    // References:
+    // - https://google.aip.dev/132#ordering
+    string order_by = 3;
+
+    // The number of roles to skip before starting to collect the result set.
+    // References:
+    // - https://google.aip.dev/158#skipping-results
+    int64 skip = 4;
+}
+
+// Response message for listing roles
+// References:
+// - https://google.aip.dev/132#response-message
+message ListRolesResponse {
+    // The roles from the specified collection
+    repeated Role roles = 1;
 }
 
 // =============================================

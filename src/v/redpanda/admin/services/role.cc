@@ -52,4 +52,16 @@ seastar::future<proto::admin::security::get_role_response> role_service_impl::ge
     co_return resp;
 }
 
+// GET /v1/security/roles
+// List roles
+// References:
+// - https://google.aip.dev/132
+seastar::future<proto::admin::security::list_roles_response> role_service_impl::list_roles(serde::pb::rpc::context ctx, proto::admin::security::list_roles_request req) {
+    (void)ctx;
+    vlog(rolelog.info, "list_roles: {}", req);
+    proto::admin::security::list_roles_response resp;
+    // Populate the response with the list of roles
+    co_return resp;
+}
+
 } // namespace admin::security

@@ -30,6 +30,12 @@ public:
   // References:
   // - https://google.aip.dev/131
   seastar::future<proto::admin::security::get_role_response> get_role(serde::pb::rpc::context, proto::admin::security::get_role_request) override;
+  // GET /v1/security/roles
+  // List roles
+  // References:
+  // - https://google.aip.dev/132
+  seastar::future<proto::admin::security::list_roles_response> list_roles(serde::pb::rpc::context, proto::admin::security::list_roles_request) override;
+
 
 private:
     // proto::admin::security::role self_role() const;
