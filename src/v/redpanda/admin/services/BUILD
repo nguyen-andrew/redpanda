@@ -96,7 +96,7 @@ redpanda_cc_library(
     ],
     deps = [
         ":utils",
-        "//proto/redpanda/core/admin/v2:security_redpanda_proto",
+        "//proto/redpanda/core/admin/v2/security:oidc_redpanda_proto",
         "//src/v/base",
         # "//src/v/features",
         # "//src/v/redpanda/admin:kafka_connections_service",

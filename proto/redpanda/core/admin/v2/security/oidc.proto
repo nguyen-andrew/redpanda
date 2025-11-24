@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package redpanda.core.admin.v2;
+package redpanda.core.admin.v2.security.oidc;
 
 import "google/api/field_behavior.proto";
 import "google/api/resource.proto";
@@ -23,7 +23,7 @@ import "google/protobuf/timestamp.proto";
 import "proto/redpanda/core/pbgen/options.proto";
 import "proto/redpanda/core/pbgen/rpc.proto";
 
-option (pbgen.cpp_namespace) = "proto::admin::security";
+option (pbgen.cpp_namespace) = "proto::admin::security::oidc";
 
 service OidcService {
     // GET /v1/security/oidc/whoami

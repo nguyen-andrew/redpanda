@@ -48,3 +48,29 @@ redpanda_proto_library(
         "//src/v/serde/protobuf:field_mask",
     ],
 )
+
+proto_library(
+    name = "oidc_proto",
+    srcs = ["oidc.proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//proto/redpanda/core/pbgen:options_proto",
+        "//proto/redpanda/core/pbgen:rpc_proto",
+        "@googleapis//google/api:field_behavior_proto",
+        "@googleapis//google/api:resource_proto",
+        "@protobuf//:field_mask_proto",
+        "@protobuf//:timestamp_proto",
+    ],
+)
+
+redpanda_proto_library(
+    name = "oidc_redpanda_proto",
+    protos = [
+        ":oidc_proto",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/v/serde/protobuf:field_mask",
+        "@abseil-cpp//absl/time:time",
+    ],
+)

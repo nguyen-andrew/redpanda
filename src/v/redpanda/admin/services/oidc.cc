@@ -32,10 +32,10 @@ ss::logger oidclog{"admin_api_server/oidc_service"};
 // Get information about the current authenticated user
 // References:
 // - https://google.aip.dev/136
-seastar::future<proto::admin::security::oidc_who_am_i_response> oidc_service_impl::oidc_who_am_i(serde::pb::rpc::context ctx, proto::admin::security::oidc_who_am_i_request req) {
+seastar::future<proto::admin::security::oidc::oidc_who_am_i_response> oidc_service_impl::oidc_who_am_i(serde::pb::rpc::context ctx, proto::admin::security::oidc::oidc_who_am_i_request req) {
     (void)ctx;
     vlog(oidclog.info, "oidc_who_am_i: {}", req);
-    proto::admin::security::oidc_who_am_i_response resp;
+    proto::admin::security::oidc::oidc_who_am_i_response resp;
     // Populate the response with the current authenticated user's information
     co_return resp;
 }
@@ -45,10 +45,10 @@ seastar::future<proto::admin::security::oidc_who_am_i_response> oidc_service_imp
 // Flush the JWK cache and force reload keys.
 // References:
 // - https://google.aip.dev/136
-seastar::future<proto::admin::security::refresh_oidc_keys_response> oidc_service_impl::refresh_oidc_keys(serde::pb::rpc::context ctx, proto::admin::security::refresh_oidc_keys_request req) {
+seastar::future<proto::admin::security::oidc::refresh_oidc_keys_response> oidc_service_impl::refresh_oidc_keys(serde::pb::rpc::context ctx, proto::admin::security::oidc::refresh_oidc_keys_request req) {
     (void)ctx;
     vlog(oidclog.info, "refresh_oidc_keys: {}", req);
-    proto::admin::security::refresh_oidc_keys_response resp;
+    proto::admin::security::oidc::refresh_oidc_keys_response resp;
     // Perform the cache invalidation and key reload
     co_return resp;
 }
@@ -58,10 +58,10 @@ seastar::future<proto::admin::security::refresh_oidc_keys_response> oidc_service
 // Explicitly revoke client tokens by flushing caches and disconnecting clients to ensure revoked tokens are not used.
 // References:
 // - https://google.aip.dev/136
-seastar::future<proto::admin::security::revoke_credentials_response> oidc_service_impl::revoke_credentials(serde::pb::rpc::context ctx, proto::admin::security::revoke_credentials_request req) {
+seastar::future<proto::admin::security::oidc::revoke_credentials_response> oidc_service_impl::revoke_credentials(serde::pb::rpc::context ctx, proto::admin::security::oidc::revoke_credentials_request req) {
     (void)ctx;
     vlog(oidclog.info, "revoke_credentials: {}", req);
-    proto::admin::security::revoke_credentials_response resp;
+    proto::admin::security::oidc::revoke_credentials_response resp;
     // Perform the credential revocation and client disconnection
     co_return resp;
 }
