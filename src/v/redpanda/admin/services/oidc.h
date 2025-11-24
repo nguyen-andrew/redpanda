@@ -31,6 +31,12 @@ public:
   // References:
   // - https://google.aip.dev/136
   seastar::future<proto::admin::security::refresh_oidc_keys_response> refresh_oidc_keys(serde::pb::rpc::context, proto::admin::security::refresh_oidc_keys_request) override;
+  // POST /v1/security/oidc/revoke
+  // Reload the keys from the identity provider and disconnect clients.
+  // Explicitly revoke client tokens by flushing caches and disconnecting clients to ensure revoked tokens are not used.
+  // References:
+  // - https://google.aip.dev/136
+  seastar::future<proto::admin::security::revoke_credentials_response> revoke_credentials(serde::pb::rpc::context, proto::admin::security::revoke_credentials_request) override;
 
 private:
     // proto::admin::security::user self_user() const;

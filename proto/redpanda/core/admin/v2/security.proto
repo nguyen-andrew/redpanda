@@ -150,6 +150,17 @@ service OidcService {
             authz: SUPERUSER
         };
     }
+
+    // POST /v1/security/oidc/revoke
+    // Reload the keys from the identity provider and disconnect clients.
+    // Explicitly revoke client tokens by flushing caches and disconnecting clients to ensure revoked tokens are not used.
+    // References:
+    // - https://google.aip.dev/136
+    rpc RevokeCredentials(RevokeCredentialsRequest) returns (RevokeCredentialsResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
 }
 
 // =============================================
@@ -530,6 +541,20 @@ message RefreshOidcKeysRequest {
 // References:
 // - https://google.aip.dev/136
 message RefreshOidcKeysResponse {
+    // Empty response
+}
+
+// Request message for RevokeCredentials
+// References:
+// - https://google.aip.dev/136
+message RevokeCredentialsRequest {
+    // Empty request
+}
+
+// Response message for RevokeCredentials
+// References:
+// - https://google.aip.dev/136
+message RevokeCredentialsResponse {
     // Empty response
 }
 

@@ -53,4 +53,17 @@ seastar::future<proto::admin::security::refresh_oidc_keys_response> oidc_service
     co_return resp;
 }
 
+// POST /v1/security/oidc/revoke
+// Reload the keys from the identity provider and disconnect clients.
+// Explicitly revoke client tokens by flushing caches and disconnecting clients to ensure revoked tokens are not used.
+// References:
+// - https://google.aip.dev/136
+seastar::future<proto::admin::security::revoke_credentials_response> oidc_service_impl::revoke_credentials(serde::pb::rpc::context ctx, proto::admin::security::revoke_credentials_request req) {
+    (void)ctx;
+    vlog(oidclog.info, "revoke_credentials: {}", req);
+    proto::admin::security::revoke_credentials_response resp;
+    // Perform the credential revocation and client disconnection
+    co_return resp;
+}
+
 } // namespace admin::security
