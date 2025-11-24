@@ -96,6 +96,16 @@ service RoleService {
             authz: SUPERUSER
         };
     }
+
+    // DELETE /v1/security/roles/{role}
+    // Remove a role by name
+    // References:
+    // - https://google.aip.dev/135
+    rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
 }
 
 // =============================================
@@ -347,6 +357,30 @@ message ListRolesRequest {
 message ListRolesResponse {
     // The roles from the specified collection
     repeated Role roles = 1;
+}
+
+// Request message for deleting a role
+// References:
+// - https://google.aip.dev/135#request-message
+message DeleteRoleRequest {
+    // The name of the role to delete.
+    // Format: roles/{role}
+    string name = 1 [
+        (google.api.field_behavior) = REQUIRED,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.RoleService/Role"
+        }
+    ];
+
+    // If true, delete all ACLs associated with this role
+    bool delete_acls = 2;
+}
+
+// Response message for deleting a role
+// References:
+// - https://google.aip.dev/135
+message DeleteRoleResponse {
+    // Empty response for successful deletion
 }
 
 // =============================================

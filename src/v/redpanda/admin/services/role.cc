@@ -64,4 +64,16 @@ seastar::future<proto::admin::security::list_roles_response> role_service_impl::
     co_return resp;
 }
 
+// DELETE /v1/security/roles/{role}
+// Remove a role by name
+// References:
+// - https://google.aip.dev/135
+seastar::future<proto::admin::security::delete_role_response> role_service_impl::delete_role(serde::pb::rpc::context ctx, proto::admin::security::delete_role_request req) {
+    (void)ctx;
+    vlog(rolelog.info, "delete_role: {}", req);
+    proto::admin::security::delete_role_response resp;
+    // Perform the deletion logic here
+    co_return resp;
+}
+
 } // namespace admin::security
