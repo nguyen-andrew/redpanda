@@ -25,6 +25,12 @@ public:
   // References:
   // - https://google.aip.dev/136
   seastar::future<proto::admin::security::oidc_who_am_i_response> oidc_who_am_i(serde::pb::rpc::context, proto::admin::security::oidc_who_am_i_request) override;
+  // POST /v1/security/oidc/keys/cache_invalidate
+  // Reload the OIDC keys from the identity provider.
+  // Flush the JWK cache and force reload keys.
+  // References:
+  // - https://google.aip.dev/136
+  seastar::future<proto::admin::security::refresh_oidc_keys_response> refresh_oidc_keys(serde::pb::rpc::context, proto::admin::security::refresh_oidc_keys_request) override;
 
 private:
     // proto::admin::security::user self_user() const;

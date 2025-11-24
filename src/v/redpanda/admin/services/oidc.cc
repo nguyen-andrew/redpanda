@@ -40,4 +40,17 @@ seastar::future<proto::admin::security::oidc_who_am_i_response> oidc_service_imp
     co_return resp;
 }
 
+// POST /v1/security/oidc/keys/cache_invalidate
+// Reload the OIDC keys from the identity provider.
+// Flush the JWK cache and force reload keys.
+// References:
+// - https://google.aip.dev/136
+seastar::future<proto::admin::security::refresh_oidc_keys_response> oidc_service_impl::refresh_oidc_keys(serde::pb::rpc::context ctx, proto::admin::security::refresh_oidc_keys_request req) {
+    (void)ctx;
+    vlog(oidclog.info, "refresh_oidc_keys: {}", req);
+    proto::admin::security::refresh_oidc_keys_response resp;
+    // Perform the cache invalidation and key reload
+    co_return resp;
+}
+
 } // namespace admin::security

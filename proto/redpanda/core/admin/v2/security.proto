@@ -139,6 +139,17 @@ service OidcService {
             authz: USER
         };
     }
+
+    // POST /v1/security/oidc/keys/cache_invalidate
+    // Reload the OIDC keys from the identity provider.
+    // Flush the JWK cache and force reload keys.
+    // References:
+    // - https://google.aip.dev/136
+    rpc RefreshOidcKeys(RefreshOidcKeysRequest) returns (RefreshOidcKeysResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
 }
 
 // =============================================
@@ -506,6 +517,20 @@ message OidcWhoAmIResponse {
 
     // Unix timestamp of the expiry of the token.
     google.protobuf.Timestamp expire = 2;
+}
+
+// Request message for RefreshOidcKeys
+// References:
+// - https://google.aip.dev/136
+message RefreshOidcKeysRequest {
+    // Empty request
+}
+
+// Response message for RefreshOidcKeys
+// References:
+// - https://google.aip.dev/136
+message RefreshOidcKeysResponse {
+    // Empty response
 }
 
 // =============================================
