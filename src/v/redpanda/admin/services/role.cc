@@ -64,6 +64,18 @@ seastar::future<proto::admin::security::list_roles_response> role_service_impl::
     co_return resp;
 }
 
+// GET /v1/security/users/roles
+// List roles for the current user
+// References:
+// - https://google.aip.dev/132
+seastar::future<proto::admin::security::list_roles_for_current_user_response> role_service_impl::list_roles_for_current_user(serde::pb::rpc::context ctx, proto::admin::security::list_roles_for_current_user_request req) {
+    (void)ctx;
+    vlog(rolelog.info, "list_roles_for_current_user: {}", req);
+    proto::admin::security::list_roles_for_current_user_response resp;
+    // Populate the response with the roles for the current user
+    co_return resp;
+}
+
 // DELETE /v1/security/roles/{role}
 // Remove a role by name
 // References:

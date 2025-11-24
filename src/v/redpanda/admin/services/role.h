@@ -35,6 +35,11 @@ public:
   // References:
   // - https://google.aip.dev/132
   seastar::future<proto::admin::security::list_roles_response> list_roles(serde::pb::rpc::context, proto::admin::security::list_roles_request) override;
+  // GET /v1/security/users/roles
+  // List roles for the current user
+  // References:
+  // - https://google.aip.dev/132
+  seastar::future<proto::admin::security::list_roles_for_current_user_response> list_roles_for_current_user(serde::pb::rpc::context, proto::admin::security::list_roles_for_current_user_request) override;
   // DELETE /v1/security/roles/{role}
   // Remove a role by name
   // References:
