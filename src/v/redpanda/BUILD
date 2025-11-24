@@ -74,6 +74,7 @@ redpanda_cc_library(
         "//src/v/redpanda/admin/services:cluster",
         "//src/v/redpanda/admin/services:user",
         "//src/v/redpanda/admin/services:role",
+        "//src/v/redpanda/admin/services:oidc",
         "//src/v/redpanda/admin/services/datalake",
         "//src/v/redpanda/admin/services/internal:breakglass",
         "//src/v/redpanda/admin/services/internal:debug",

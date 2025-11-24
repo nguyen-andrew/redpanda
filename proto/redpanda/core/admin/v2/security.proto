@@ -19,6 +19,7 @@ package redpanda.core.admin.v2;
 import "google/api/field_behavior.proto";
 import "google/api/resource.proto";
 import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
 import "proto/redpanda/core/pbgen/options.proto";
 import "proto/redpanda/core/pbgen/rpc.proto";
 
@@ -124,6 +125,18 @@ service RoleService {
     rpc UpdateRole(UpdateRoleRequest) returns (UpdateRoleResponse) {
         option (pbgen.rpc) = {
             authz: SUPERUSER
+        };
+    }
+}
+
+service OidcService {
+    // GET /v1/security/oidc/whoami
+    // Get information about the current authenticated user
+    // References:
+    // - https://google.aip.dev/136
+    rpc OidcWhoAmI(OidcWhoAmIRequest) returns (OidcWhoAmIResponse) {
+        option (pbgen.rpc) = {
+            authz: USER
         };
     }
 }
@@ -474,6 +487,25 @@ message UpdateRoleRequest {
 message UpdateRoleResponse {
     // The updated role
     Role role = 1;
+}
+
+// Request message for OidcWhoAmI
+// References:
+// - https://google.aip.dev/136
+message OidcWhoAmIRequest {
+    // Empty request
+}
+
+// Response message for OidcWhoAmI
+// The current authenticated user's information
+// References:
+// - https://google.aip.dev/136
+message OidcWhoAmIResponse {
+    // Mapped principal for authorization.
+    string id = 1;
+
+    // Unix timestamp of the expiry of the token.
+    google.protobuf.Timestamp expire = 2;
 }
 
 // =============================================
