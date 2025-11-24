@@ -40,6 +40,11 @@ public:
   // References:
   // - https://google.aip.dev/135
   seastar::future<proto::admin::security::delete_role_response> delete_role(serde::pb::rpc::context, proto::admin::security::delete_role_request) override;
+  // PUT /v1/security/roles/{role}
+  // Update role
+  // References:
+  // - https://google.aip.dev/134
+  seastar::future<proto::admin::security::update_role_response> update_role(serde::pb::rpc::context, proto::admin::security::update_role_request) override;
 
 
 private:

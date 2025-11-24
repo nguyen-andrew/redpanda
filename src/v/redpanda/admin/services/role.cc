@@ -76,4 +76,16 @@ seastar::future<proto::admin::security::delete_role_response> role_service_impl:
     co_return resp;
 }
 
+  // PUT /v1/security/roles/{role}
+  // Update role
+  // References:
+  // - https://google.aip.dev/134
+  seastar::future<proto::admin::security::update_role_response> role_service_impl::update_role(serde::pb::rpc::context ctx, proto::admin::security::update_role_request req) {
+    (void)ctx;
+    vlog(rolelog.info, "update_role: {}", req);
+    proto::admin::security::update_role_response resp;
+    // Perform the update logic here
+    co_return resp;
+  }
+
 } // namespace admin::security

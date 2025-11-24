@@ -106,6 +106,16 @@ service RoleService {
             authz: SUPERUSER
         };
     }
+
+    // PUT /v1/security/roles/{role}
+    // Update role
+    // References:
+    // - https://google.aip.dev/134
+    rpc UpdateRole(UpdateRoleRequest) returns (UpdateRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
 }
 
 // =============================================
@@ -381,6 +391,36 @@ message DeleteRoleRequest {
 // - https://google.aip.dev/135
 message DeleteRoleResponse {
     // Empty response for successful deletion
+}
+
+// Request message for updating a role
+// References:
+// - http://google.aip.dev/134#request-message
+message UpdateRoleRequest {
+    // The role to update.
+    //
+    // The role's `name` field is used to identify the role to update.
+    // Format: roles/{role}
+    Role role = 1 [(google.api.field_behavior) = REQUIRED];
+
+    // The list of fields to update.
+    // References:
+    // - https://protobuf.dev/reference/protobuf/google.protobuf/#field-mask
+    google.protobuf.FieldMask update_mask = 2;
+
+    // If set to true, and the role is not found, a new role will be created.
+    // In this situation, `update_mask` is ignored.
+    // References:
+    // - https://google.aip.dev/134#create-or-update
+    bool allow_missing = 3;
+}
+
+// Response message for updating a role
+// References:
+// - http://google.aip.dev/134
+message UpdateRoleResponse {
+    // The updated role
+    Role role = 1;
 }
 
 // =============================================
