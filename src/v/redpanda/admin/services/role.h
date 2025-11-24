@@ -25,6 +25,11 @@ public:
   // References:
   // - https://google.aip.dev/133
   seastar::future<proto::admin::security::create_role_response> create_role(serde::pb::rpc::context, proto::admin::security::create_role_request) override;
+  // GET /v1/security/roles/{role}
+  // Get role
+  // References:
+  // - https://google.aip.dev/131
+  seastar::future<proto::admin::security::get_role_response> get_role(serde::pb::rpc::context, proto::admin::security::get_role_request) override;
 
 private:
     // proto::admin::security::role self_role() const;

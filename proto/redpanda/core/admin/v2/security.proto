@@ -76,6 +76,16 @@ service RoleService {
             authz: SUPERUSER
         };
     }
+
+    // GET /v1/security/roles/{role}
+    // Get role
+    // References:
+    // - https://google.aip.dev/131
+    rpc GetRole(GetRoleRequest) returns (GetRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
 }
 
 // =============================================
@@ -262,6 +272,28 @@ message CreateRoleRequest {
 // - https://google.aip.dev/133
 message CreateRoleResponse {
     // The created role
+    Role role = 1;
+}
+
+// Request message for getting a role
+// References:
+// - https://google.aip.dev/131#request-message
+message GetRoleRequest {
+    // The name of the role to retrieve.
+    // Format: roles/{role}
+    string name = 1 [
+        (google.api.field_behavior) = REQUIRED,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.RoleService/Role"
+        }
+    ];
+}
+
+// Response message for getting a role
+// References:
+// - https://google.aip.dev/131
+message GetRoleResponse {
+    // The retrieved role
     Role role = 1;
 }
 
