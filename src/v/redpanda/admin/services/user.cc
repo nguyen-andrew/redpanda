@@ -28,19 +28,19 @@ ss::logger userlog{"admin_api_server/user_service"};
 
 } // namespace
 
-seastar::future<proto::admin::security::create_user_response> 
-user_service_impl::create_user(serde::pb::rpc::context ctx, proto::admin::security::create_user_request req) {
+seastar::future<proto::admin::security::user::create_user_response> 
+user_service_impl::create_user(serde::pb::rpc::context ctx, proto::admin::security::user::create_user_request req) {
     (void)ctx;
     vlog(userlog.info, "create_user: {}", req);
-    proto::admin::security::create_user_response resp;
+    proto::admin::security::user::create_user_response resp;
     resp.set_user(std::move(req.get_user()));
     co_return resp;
 }
 
-seastar::future<proto::admin::security::list_users_response> user_service_impl::list_users(serde::pb::rpc::context ctx, proto::admin::security::list_users_request req) {
+seastar::future<proto::admin::security::user::list_users_response> user_service_impl::list_users(serde::pb::rpc::context ctx, proto::admin::security::user::list_users_request req) {
     (void)ctx;
     vlog(userlog.info, "list_users: {}", req);
-    proto::admin::security::list_users_response resp;
+    proto::admin::security::user::list_users_response resp;
     // Populate the response with the list of users
     co_return resp;
 }
@@ -49,10 +49,10 @@ seastar::future<proto::admin::security::list_users_response> user_service_impl::
 // Delete user
 // References:
 // - https://google.aip.dev/135
-seastar::future<proto::admin::security::delete_user_response> user_service_impl::delete_user(serde::pb::rpc::context ctx, proto::admin::security::delete_user_request req) {
+seastar::future<proto::admin::security::user::delete_user_response> user_service_impl::delete_user(serde::pb::rpc::context ctx, proto::admin::security::user::delete_user_request req) {
       (void)ctx;
       vlog(userlog.info, "delete_user: {}", req);
-      proto::admin::security::delete_user_response resp;
+      proto::admin::security::user::delete_user_response resp;
       // Handle user deletion logic
       co_return resp;
 }
@@ -61,10 +61,10 @@ seastar::future<proto::admin::security::delete_user_response> user_service_impl:
 // Update user
 // References:
 // - https://google.aip.dev/134
-seastar::future<proto::admin::security::update_user_response> user_service_impl::update_user(serde::pb::rpc::context ctx, proto::admin::security::update_user_request req) {
+seastar::future<proto::admin::security::user::update_user_response> user_service_impl::update_user(serde::pb::rpc::context ctx, proto::admin::security::user::update_user_request req) {
     (void)ctx;
     vlog(userlog.info, "update_user: {}", req);
-    proto::admin::security::update_user_response resp;
+    proto::admin::security::user::update_user_response resp;
     // Handle user update logic
     co_return resp;
 }
