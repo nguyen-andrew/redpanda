@@ -1,0 +1,338 @@
+// Copyright 2025 Redpanda Data, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package redpanda.core.admin.v2.security.report;
+
+import "proto/redpanda/core/pbgen/options.proto";
+import "proto/redpanda/core/pbgen/rpc.proto";
+
+option (pbgen.cpp_namespace) = "proto::admin::security::report";
+
+service ReportService {
+    // GET /v1/security/report
+    // Get comprehensive security report for all interfaces
+    // References:
+    // - https://google.aip.dev/136
+    rpc GenerateSecurityReport(GenerateSecurityReportRequest) returns (GenerateSecurityReportResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+}
+
+// =============================================
+/* Resources */
+// =============================================
+
+// =============================================
+/* RPC Requests and Responses */
+// =============================================
+// Request message for GenerateSecurityReport
+// References:
+// - https://google.aip.dev/136
+message GenerateSecurityReportRequest {
+    // Empty request
+}
+
+// Response message for GenerateSecurityReport
+// References:
+// - https://google.aip.dev/136
+message GenerateSecurityReportResponse {
+    // Security report data
+    SecurityReport report = 1;
+}
+
+// =============================================
+/* Other Messages */
+// =============================================
+// Main security report structure
+message SecurityReport {
+    // Interface-specific security reports
+    InterfacesReport interfaces = 1;
+    
+    // Security alerts
+    repeated SecurityReportAlert alerts = 2;
+}
+
+// Container for all interface reports
+message InterfacesReport {
+    // Kafka interface reports
+    repeated KafkaInterfaceSecurityReport kafka = 1;
+    
+    // RPC interface report
+    RpcInterfaceSecurityReport rpc = 2;
+    
+    // Admin interface reports
+    repeated AdminInterfaceSecurityReport admin = 3;
+    
+    // Schema registry interface reports
+    repeated SchemaRegistryInterfaceSecurityReport schema_registry = 4;
+    
+    // Schema registry client report
+    ClientSecurityReport schema_registry_client = 5;
+    
+    // Pandaproxy interface reports
+    repeated PandaproxyInterfaceSecurityReport pandaproxy = 6;
+    
+    // Audit log client report
+    ClientSecurityReport audit_log_client = 7;
+}
+
+// Host and port pair
+message HostPort {
+    // Host address
+    string host = 1;
+    
+    // Port number
+    int32 port = 2;
+}
+
+// Security report for Kafka interfaces
+message KafkaInterfaceSecurityReport {
+    // Authentication method enum for Kafka
+    enum AuthenticationMethod {
+        AUTHENTICATION_METHOD_UNSPECIFIED = 0;
+        SASL = 1;
+        MTLS = 2;
+        NONE = 3;
+    }
+    
+    // Interface name
+    string name = 1;
+    
+    // Host address
+    string host = 2;
+    
+    // Port number
+    int32 port = 3;
+    
+    // Advertised host
+    string advertised_host = 4;
+    
+    // Advertised port
+    int32 advertised_port = 5;
+    
+    // TLS enabled flag
+    bool tls_enabled = 6;
+    
+    // Mutual TLS enabled flag
+    bool mutual_tls_enabled = 7;
+    
+    // Authentication method
+    AuthenticationMethod authentication_method = 8;
+    
+    // Authorization enabled flag
+    bool authorization_enabled = 9;
+    
+    // Supported SASL mechanisms
+    repeated string supported_sasl_mechanisms = 10;
+}
+
+// Security report for RPC interface
+message RpcInterfaceSecurityReport {
+    // Host address
+    string host = 1;
+    
+    // Port number
+    int32 port = 2;
+    
+    // Advertised host
+    string advertised_host = 3;
+    
+    // Advertised port
+    int32 advertised_port = 4;
+    
+    // TLS enabled flag
+    bool tls_enabled = 5;
+    
+    // Mutual TLS enabled flag
+    bool mutual_tls_enabled = 6;
+}
+
+// Security report for Admin interfaces
+message AdminInterfaceSecurityReport {
+    // Authentication method enum for Admin
+    enum AuthenticationMethod {
+        AUTHENTICATION_METHOD_UNSPECIFIED = 0;
+        BASIC = 1;
+        OIDC = 2;
+    }
+    
+    // Interface name
+    string name = 1;
+    
+    // Host address
+    string host = 2;
+    
+    // Port number
+    int32 port = 3;
+    
+    // TLS enabled flag
+    bool tls_enabled = 4;
+    
+    // Mutual TLS enabled flag
+    bool mutual_tls_enabled = 5;
+    
+    // Authentication methods
+    repeated AuthenticationMethod authentication_methods = 6;
+    
+    // Authorization enabled flag
+    bool authorization_enabled = 7;
+}
+
+// Security report for Schema Registry interfaces
+message SchemaRegistryInterfaceSecurityReport {
+    // Authentication method enum for Schema Registry
+    enum AuthenticationMethod {
+        AUTHENTICATION_METHOD_UNSPECIFIED = 0;
+        BASIC = 1;
+        OIDC = 2;
+    }
+    
+    // Interface name
+    string name = 1;
+    
+    // Host address
+    string host = 2;
+    
+    // Port number
+    int32 port = 3;
+    
+    // TLS enabled flag
+    bool tls_enabled = 4;
+    
+    // Mutual TLS enabled flag
+    bool mutual_tls_enabled = 5;
+    
+    // Authentication methods
+    repeated AuthenticationMethod authentication_methods = 6;
+    
+    // Authorization enabled flag
+    bool authorization_enabled = 7;
+}
+
+// Security report for Pandaproxy interfaces
+message PandaproxyInterfaceSecurityReport {
+    // Authentication method enum for Pandaproxy client
+    enum ConfiguredAuthenticationMethod {
+        CONFIGURED_AUTHENTICATION_METHOD_UNSPECIFIED = 0;
+        NONE = 1;
+        SCRAM_CONFIGURED = 2;
+        SCRAM_PROXIED = 3;
+    }
+    
+    // Authentication method enum for Pandaproxy interface
+    enum AuthenticationMethod {
+        AUTHENTICATION_METHOD_UNSPECIFIED = 0;
+        BASIC = 1;
+        OIDC = 2;
+    }
+    
+    // Interface name
+    string name = 1;
+    
+    // Host address
+    string host = 2;
+    
+    // Port number
+    int32 port = 3;
+    
+    // Advertised host
+    string advertised_host = 4;
+    
+    // Advertised port
+    int32 advertised_port = 5;
+    
+    // TLS enabled flag
+    bool tls_enabled = 6;
+    
+    // Mutual TLS enabled flag
+    bool mutual_tls_enabled = 7;
+    
+    // Authentication methods for the interface
+    repeated AuthenticationMethod authentication_methods = 8;
+    
+    // Authorization enabled flag
+    bool authorization_enabled = 9;
+    
+    // Configured authentication method for client connections
+    ConfiguredAuthenticationMethod configured_authentication_method = 10;
+}
+
+// Security report for client interfaces
+message ClientSecurityReport {
+    // Authentication method enum for clients
+    enum ConfiguredAuthenticationMethod {
+        CONFIGURED_AUTHENTICATION_METHOD_UNSPECIFIED = 0;
+        NONE = 1;
+        SCRAM_CONFIGURED = 2;
+        SCRAM_EPHEMERAL = 3;
+    }
+    
+    // Kafka listener name
+    string kafka_listener_name = 1;
+    
+    // Broker endpoints
+    repeated HostPort brokers = 2;
+    
+    // TLS enabled flag
+    bool tls_enabled = 3;
+    
+    // Mutual TLS enabled flag
+    bool mutual_tls_enabled = 4;
+    
+    // Configured authentication method
+    ConfiguredAuthenticationMethod configured_authentication_method = 5;
+}
+
+// Security alert information
+message SecurityReportAlert {
+    // Affected interface enum
+    enum AffectedInterface {
+        AFFECTED_INTERFACE_UNSPECIFIED = 0;
+        KAFKA = 1;
+        RPC = 2;
+        ADMIN = 3;
+        SCHEMA_REGISTRY = 4;
+        SCHEMA_REGISTRY_CLIENT = 5;
+        PANDAPROXY = 6;
+        AUDIT_LOG_CLIENT = 7;
+    }
+    
+    // Issue type enum
+    enum Issue {
+        ISSUE_UNSPECIFIED = 0;
+        NO_TLS = 1;
+        NO_AUTHN = 2;
+        NO_AUTHZ = 3;
+        SASL_PLAIN = 4;
+        PP_CONFIGURED_CLIENT = 5;
+        INSECURE_MIN_TLS_VERSION = 6;
+        TLS_RENEGOTIATION = 7;
+    }
+    
+    // Affected interface
+    AffectedInterface affected_interface = 1;
+    
+    // Listener name (optional)
+    string listener_name = 2;
+    
+    // Issue type
+    Issue issue = 3;
+    
+    // Human-readable description
+    string description = 4;
+}
