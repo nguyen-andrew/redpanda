@@ -37,6 +37,9 @@ public:
   seastar::future<proto::admin::refresh_oidc_keys_response> refresh_oidc_keys(serde::pb::rpc::context, proto::admin::refresh_oidc_keys_request) override;
   seastar::future<proto::admin::revoke_credentials_response> revoke_credentials(serde::pb::rpc::context, proto::admin::revoke_credentials_request) override;
 
+  seastar::future<proto::admin::generate_security_report_response> generate_security_report(serde::pb::rpc::context, proto::admin::generate_security_report_request) override;
+
+
 private:
     // proto::admin::user self_user() const;
 

@@ -140,4 +140,12 @@ security_service_impl::revoke_credentials(serde::pb::rpc::context ctx, proto::ad
     co_return resp;
 }
 
+seastar::future<proto::admin::generate_security_report_response> 
+security_service_impl::generate_security_report(serde::pb::rpc::context ctx, proto::admin::generate_security_report_request req) {
+    (void)ctx;
+    vlog(securitylog.info, "generate_security_report: {}", req);
+    proto::admin::generate_security_report_response resp;
+    co_return resp;
+}
+
 } // namespace admin::security
