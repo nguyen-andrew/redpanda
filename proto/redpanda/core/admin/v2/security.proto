@@ -55,6 +55,42 @@ service SecurityService {
             authz: SUPERUSER
         };
     }
+
+    rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    rpc GetRole(GetRoleRequest) returns (GetRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    rpc ListRoles(ListRolesRequest) returns (ListRolesResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    rpc UpdateRole(UpdateRoleRequest) returns (UpdateRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    rpc EnumerateCurrentUserRoles(EnumerateCurrentUserRolesRequest) returns (EnumerateCurrentUserRolesResponse) {
+        option (pbgen.rpc) = {
+            authz: USER
+        };
+    }
 }
 
 // =============================================
@@ -84,6 +120,17 @@ message ScramCredential {
     ];
 
     google.protobuf.Timestamp created_at = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+message Role {
+    option (google.api.resource) = {
+        type: "redpanda.core.admin.SecurityService/Role"
+        pattern: "roles/{role}"
+    };
+
+    string name = 1 [(google.api.field_behavior) = IDENTIFIER];
+
+    repeated RoleMember members = 2;
 }
 
 // =============================================
@@ -145,6 +192,99 @@ message DeleteScramCredentialRequest {
 message DeleteScramCredentialResponse {
 }
 
+message CreateRoleRequest {
+    string role_name = 1 [(google.api.field_behavior) = REQUIRED];
+
+    Role role = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+message CreateRoleResponse {
+    Role role = 1;
+}
+
+message GetRoleRequest {
+    string name = 1 [
+        (google.api.field_behavior) = REQUIRED,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.SecurityService/Role"
+        }
+    ];
+}
+
+message GetRoleResponse {
+    Role role = 1;
+}
+
+message ListRolesRequest {
+}
+
+message ListRolesResponse {
+    repeated Role roles = 1;
+}
+
+message UpdateRoleRequest {
+    Role role = 1 [(google.api.field_behavior) = REQUIRED];
+
+    // The list of fields to update
+    // See [AIP-134](https://google.aip.dev/134) for how to use `field_mask`
+    google.protobuf.FieldMask update_mask = 2;
+
+    // If set to true, and the role is not found, a new role will be created.
+    // In this situation, `update_mask` is ignored.
+    // References:
+    // - https://google.aip.dev/134#create-or-update
+    bool allow_missing = 3;
+}
+
+message UpdateRoleResponse {
+    Role role = 1;
+}
+
+message DeleteRoleRequest {
+    string name = 1 [
+        (google.api.field_behavior) = REQUIRED,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.SecurityService/Role"
+        }
+    ];
+
+    // If true, delete all ACLs associated with this role
+    bool delete_acls = 2;
+}
+
+message DeleteRoleResponse {
+}
+
+message EnumerateCurrentUserRolesRequest {
+}
+
+message EnumerateCurrentUserRolesResponse {
+    // The names of the roles the current user is a member of.
+    // Not returning the full Role resources to avoid leaking information
+    // about other members of the roles. If a superuser wants that 
+    // information, they can use the GetRole or ListRoles RPCs.
+    repeated string roles = 1 [
+        (google.api.field_behavior) = OUTPUT_ONLY,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.SecurityService/Role"
+        }
+    ];
+}
+
 // =============================================
 /* Other Messages */
 // =============================================
+message RoleUser {
+    string name = 1;
+}
+
+// message RoleGroup {
+//     string name = 1;
+// }
+
+message RoleMember {
+    oneof member {
+        RoleUser user = 1;
+        // RoleGroup group = 2;
+    }
+}

@@ -68,4 +68,52 @@ security_service_impl::delete_scram_credential(serde::pb::rpc::context ctx, prot
     co_return resp;
 }
 
+seastar::future<proto::admin::create_role_response> 
+security_service_impl::create_role(serde::pb::rpc::context ctx, proto::admin::create_role_request req) {
+    (void)ctx;
+    vlog(securitylog.info, "create_role: {}", req);
+    proto::admin::create_role_response resp;
+    co_return resp;
+}
+
+seastar::future<proto::admin::get_role_response> 
+security_service_impl::get_role(serde::pb::rpc::context ctx, proto::admin::get_role_request req) {
+    (void)ctx;
+    vlog(securitylog.info, "get_role: {}", req);
+    proto::admin::get_role_response resp;
+    co_return resp;
+}
+
+seastar::future<proto::admin::list_roles_response> 
+security_service_impl::list_roles(serde::pb::rpc::context ctx, proto::admin::list_roles_request req) {
+    (void)ctx;
+    vlog(securitylog.info, "list_roles: {}", req);
+    proto::admin::list_roles_response resp;
+    co_return resp;
+}
+
+seastar::future<proto::admin::update_role_response> 
+security_service_impl::update_role(serde::pb::rpc::context ctx, proto::admin::update_role_request req) {
+    (void)ctx;
+    vlog(securitylog.info, "update_role: {}", req);
+    proto::admin::update_role_response resp;
+    co_return resp;
+}
+
+seastar::future<proto::admin::delete_role_response> 
+security_service_impl::delete_role(serde::pb::rpc::context ctx, proto::admin::delete_role_request req) {
+    (void)ctx;
+    vlog(securitylog.info, "delete_role: {}", req);
+    proto::admin::delete_role_response resp;
+    co_return resp;
+}
+
+seastar::future<proto::admin::enumerate_current_user_roles_response> 
+security_service_impl::enumerate_current_user_roles(serde::pb::rpc::context ctx, proto::admin::enumerate_current_user_roles_request req) {
+    (void)ctx;
+    vlog(securitylog.info, "enumerate_current_user_roles: {}", req);
+    proto::admin::enumerate_current_user_roles_response resp;
+    co_return resp;
+}
+
 } // namespace admin::security
