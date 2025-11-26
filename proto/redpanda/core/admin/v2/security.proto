@@ -32,6 +32,12 @@ service SecurityService {
         };
     }
 
+    rpc GetScramCredentials(GetScramCredentialsRequest) returns (GetScramCredentialsResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
     rpc ListScramCredentials(ListScramCredentialsRequest) returns (ListScramCredentialsResponse) {
         option (pbgen.rpc) = {
             authz: SUPERUSER
@@ -90,6 +96,19 @@ message CreateScramCredentialRequest {
 }
 
 message CreateScramCredentialResponse {
+    ScramCredential scram_credential = 1;
+}
+
+message GetScramCredentialsRequest {
+    string name = 1 [
+        (google.api.field_behavior) = REQUIRED,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.SecurityService/ScramCredential"
+        }
+    ];
+}
+
+message GetScramCredentialsResponse {
     ScramCredential scram_credential = 1;
 }
 

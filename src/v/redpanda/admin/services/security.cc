@@ -36,6 +36,14 @@ security_service_impl::create_scram_credential(serde::pb::rpc::context ctx, prot
     co_return resp;
 }
 
+seastar::future<proto::admin::get_scram_credentials_response> 
+security_service_impl::get_scram_credentials(serde::pb::rpc::context ctx, proto::admin::get_scram_credentials_request req) {
+    (void)ctx;
+    vlog(securitylog.info, "get_scram_credentials: {}", req);
+    proto::admin::get_scram_credentials_response resp;
+    co_return resp;
+}
+
 seastar::future<proto::admin::list_scram_credentials_response> 
 security_service_impl::list_scram_credentials(serde::pb::rpc::context ctx, proto::admin::list_scram_credentials_request req) {
     (void)ctx;

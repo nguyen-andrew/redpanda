@@ -21,6 +21,7 @@ public:
   security_service_impl() = default;
 
   seastar::future<proto::admin::create_scram_credential_response> create_scram_credential(serde::pb::rpc::context, proto::admin::create_scram_credential_request) override;
+  seastar::future<proto::admin::get_scram_credentials_response> get_scram_credentials(serde::pb::rpc::context, proto::admin::get_scram_credentials_request) override;
   seastar::future<proto::admin::list_scram_credentials_response> list_scram_credentials(serde::pb::rpc::context, proto::admin::list_scram_credentials_request) override;
   seastar::future<proto::admin::update_scram_credential_response> update_scram_credential(serde::pb::rpc::context, proto::admin::update_scram_credential_request) override;
   seastar::future<proto::admin::delete_scram_credential_response> delete_scram_credential(serde::pb::rpc::context, proto::admin::delete_scram_credential_request) override;
