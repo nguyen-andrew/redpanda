@@ -150,7 +150,7 @@
 #include "redpanda/admin/services/report.h"
 #include "redpanda/admin/services/role.h"
 #include "redpanda/admin/services/shadow_link/shadow_link.h"
-#include "redpanda/admin/services/user.h"
+#include "redpanda/admin/services/security.h"
 #include "resource_mgmt/memory_groups.h"
 #include "resource_mgmt/memory_sampling.h"
 #include "resource_mgmt/scheduling_groups_probe.h"
@@ -1202,7 +1202,7 @@ void application::configure_admin_server(model::node_id node_id) {
               create_client(), &_cluster_link_service, &metadata_cache));
           s.add_service(
             std::make_unique<
-              admin::security::user_service_impl>());
+              admin::security::security_service_impl>());
           s.add_service(
             std::make_unique<
               admin::security::role_service_impl>());

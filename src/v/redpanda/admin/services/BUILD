@@ -48,15 +48,15 @@ redpanda_cc_library(
 )
 
 redpanda_cc_library(
-    name = "user",
-    srcs = ["user.cc"],
-    hdrs = ["user.h"],
+    name = "security",
+    srcs = ["security.cc"],
+    hdrs = ["security.h"],
     implementation_deps = [
         # "//src/v/redpanda/admin/proxy:context",
     ],
     deps = [
         ":utils",
-        "//proto/redpanda/core/admin/v2/security:user_redpanda_proto",
+        "//proto/redpanda/core/admin/v2:security_redpanda_proto",
         "//src/v/base",
         # "//src/v/features",
         # "//src/v/redpanda/admin:kafka_connections_service",
