@@ -84,6 +84,14 @@ security_service_impl::get_role(serde::pb::rpc::context ctx, proto::admin::get_r
     co_return resp;
 }
 
+seastar::future<proto::admin::batch_get_roles_response> 
+security_service_impl::batch_get_roles(serde::pb::rpc::context ctx, proto::admin::batch_get_roles_request req) {
+    (void)ctx;
+    vlog(securitylog.info, "batch_get_roles: {}", req);
+    proto::admin::batch_get_roles_response resp;
+    co_return resp;
+}
+
 seastar::future<proto::admin::list_roles_response> 
 security_service_impl::list_roles(serde::pb::rpc::context ctx, proto::admin::list_roles_request req) {
     (void)ctx;

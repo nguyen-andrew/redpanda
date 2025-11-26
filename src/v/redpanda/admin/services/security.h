@@ -28,6 +28,7 @@ public:
 
   seastar::future<proto::admin::create_role_response> create_role(serde::pb::rpc::context, proto::admin::create_role_request) override;
   seastar::future<proto::admin::get_role_response> get_role(serde::pb::rpc::context, proto::admin::get_role_request) override;
+  seastar::future<proto::admin::batch_get_roles_response> batch_get_roles(serde::pb::rpc::context, proto::admin::batch_get_roles_request) override;
   seastar::future<proto::admin::list_roles_response> list_roles(serde::pb::rpc::context, proto::admin::list_roles_request) override;
   seastar::future<proto::admin::update_role_response> update_role(serde::pb::rpc::context, proto::admin::update_role_request) override;
   seastar::future<proto::admin::delete_role_response> delete_role(serde::pb::rpc::context, proto::admin::delete_role_request) override;
