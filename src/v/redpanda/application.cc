@@ -146,7 +146,6 @@
 #include "redpanda/admin/services/internal/debug.h"
 #include "redpanda/admin/services/internal/metastore.h"
 #include "redpanda/admin/services/internal/shadow_link_internal.h"
-#include "redpanda/admin/services/oidc.h"
 #include "redpanda/admin/services/report.h"
 #include "redpanda/admin/services/shadow_link/shadow_link.h"
 #include "redpanda/admin/services/security.h"
@@ -1202,9 +1201,6 @@ void application::configure_admin_server(model::node_id node_id) {
           s.add_service(
             std::make_unique<
               admin::security::security_service_impl>());
-          s.add_service(
-            std::make_unique<
-              admin::security::oidc_service_impl>());
           s.add_service(
             std::make_unique<
               admin::security::report_service_impl>());

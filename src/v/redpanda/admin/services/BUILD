@@ -68,26 +68,6 @@ redpanda_cc_library(
 )
 
 redpanda_cc_library(
-    name = "oidc",
-    srcs = ["oidc.cc"],
-    hdrs = ["oidc.h"],
-    implementation_deps = [
-        # "//src/v/redpanda/admin/proxy:context",
-    ],
-    deps = [
-        ":utils",
-        "//proto/redpanda/core/admin/v2/security:oidc_redpanda_proto",
-        "//src/v/base",
-        # "//src/v/features",
-        # "//src/v/redpanda/admin:kafka_connections_service",
-        # "//src/v/redpanda/admin/proxy:client",
-        # "//src/v/resource_mgmt:available_memory",
-        "//src/v/serde/protobuf:rpc",
-        "@seastar",
-    ],
-)
-
-redpanda_cc_library(
     name = "report",
     srcs = ["report.cc"],
     hdrs = ["report.h"],

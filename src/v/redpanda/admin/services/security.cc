@@ -116,4 +116,28 @@ security_service_impl::enumerate_current_user_roles(serde::pb::rpc::context ctx,
     co_return resp;
 }
 
+seastar::future<proto::admin::resolve_oidc_identity_response> 
+security_service_impl::resolve_oidc_identity(serde::pb::rpc::context ctx, proto::admin::resolve_oidc_identity_request req) {
+    (void)ctx;
+    vlog(securitylog.info, "resolve_oidc_identity: {}", req);
+    proto::admin::resolve_oidc_identity_response resp;
+    co_return resp;
+}
+
+seastar::future<proto::admin::refresh_oidc_keys_response> 
+security_service_impl::refresh_oidc_keys(serde::pb::rpc::context ctx, proto::admin::refresh_oidc_keys_request req) {
+    (void)ctx;
+    vlog(securitylog.info, "refresh_oidc_keys: {}", req);
+    proto::admin::refresh_oidc_keys_response resp;
+    co_return resp;
+}
+
+seastar::future<proto::admin::revoke_credentials_response> 
+security_service_impl::revoke_credentials(serde::pb::rpc::context ctx, proto::admin::revoke_credentials_request req) {
+    (void)ctx;
+    vlog(securitylog.info, "revoke_credentials: {}", req);
+    proto::admin::revoke_credentials_response resp;
+    co_return resp;
+}
+
 } // namespace admin::security

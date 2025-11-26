@@ -33,6 +33,10 @@ public:
   seastar::future<proto::admin::delete_role_response> delete_role(serde::pb::rpc::context, proto::admin::delete_role_request) override;
   seastar::future<proto::admin::enumerate_current_user_roles_response> enumerate_current_user_roles(serde::pb::rpc::context, proto::admin::enumerate_current_user_roles_request) override;
 
+  seastar::future<proto::admin::resolve_oidc_identity_response> resolve_oidc_identity(serde::pb::rpc::context, proto::admin::resolve_oidc_identity_request) override;
+  seastar::future<proto::admin::refresh_oidc_keys_response> refresh_oidc_keys(serde::pb::rpc::context, proto::admin::refresh_oidc_keys_request) override;
+  seastar::future<proto::admin::revoke_credentials_response> revoke_credentials(serde::pb::rpc::context, proto::admin::revoke_credentials_request) override;
+
 private:
     // proto::admin::user self_user() const;
 

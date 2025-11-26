@@ -91,6 +91,24 @@ service SecurityService {
             authz: USER
         };
     }
+
+    rpc ResolveOidcIdentity(ResolveOidcIdentityRequest) returns (ResolveOidcIdentityResponse) {
+        option (pbgen.rpc) = {
+            authz: USER
+        };
+    }
+
+    rpc RefreshOidcKeys(RefreshOidcKeysRequest) returns (RefreshOidcKeysResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    rpc RevokeCredentials(RevokeCredentialsRequest) returns (RevokeCredentialsResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
 }
 
 // =============================================
@@ -269,6 +287,35 @@ message EnumerateCurrentUserRolesResponse {
             type: "redpanda.core.admin.SecurityService/Role"
         }
     ];
+}
+
+message ResolveOidcIdentityRequest {
+    // Empty request
+}
+
+message ResolveOidcIdentityResponse {
+    // Mapped principal for authorization.
+    // ❓: Is there a better name for this field?
+    string id = 1;
+
+    // Unix timestamp of the expiry of the token.
+    google.protobuf.Timestamp expire = 2;
+}
+
+message RefreshOidcKeysRequest {
+    // Empty request
+}
+
+message RefreshOidcKeysResponse {
+    // Empty response
+}
+
+message RevokeCredentialsRequest {
+    // Empty request
+}
+
+message RevokeCredentialsResponse {
+    // Empty response
 }
 
 // =============================================
