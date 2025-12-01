@@ -110,6 +110,12 @@ service SecurityService {
         };
     }
 
+    rpc RemoveRoleMembers(RemoveRoleMembersRequest) returns (RemoveRoleMembersResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
     rpc ResolveOidcIdentity(ResolveOidcIdentityRequest) returns (ResolveOidcIdentityResponse) {
         option (pbgen.rpc) = {
             authz: USER
@@ -349,6 +355,21 @@ message AddRoleMembersRequest {
 }
 
 message AddRoleMembersResponse {}
+
+message RemoveRoleMembersRequest {
+    string role_name = 1 [
+        (google.api.field_behavior) = REQUIRED,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.SecurityService/Role"
+        }
+    ];
+
+    repeated RoleMember members = 2 [
+        (google.api.field_behavior) = REQUIRED
+    ];
+}
+
+message RemoveRoleMembersResponse {}
 
 message ResolveOidcIdentityRequest {}
 
