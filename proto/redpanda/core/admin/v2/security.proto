@@ -110,7 +110,7 @@ service SecurityService {
         };
     }
 
-    rpc RevokeCredentials(RevokeCredentialsRequest) returns (RevokeCredentialsResponse) {
+    rpc RevokeOidcCredentials(RevokeOidcCredentialsRequest) returns (RevokeOidcCredentialsResponse) {
         option (pbgen.rpc) = {
             authz: SUPERUSER
         };
@@ -335,11 +335,11 @@ message RefreshOidcKeysResponse {
     // Empty response
 }
 
-message RevokeCredentialsRequest {
+message RevokeOidcCredentialsRequest {
     // Empty request
 }
 
-message RevokeCredentialsResponse {
+message RevokeOidcCredentialsResponse {
     // Empty response
 }
 
