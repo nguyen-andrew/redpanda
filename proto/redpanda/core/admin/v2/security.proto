@@ -320,7 +320,8 @@ message ResolveOidcIdentityRequest {
 
 message ResolveOidcIdentityResponse {
     // Mapped principal for authorization.
-    // ❓: Is there a better name for this field?
+    // ❓: Is there a better name for this field (e.g. subject or acl principal name)?
+    // ❓: Do we want to expand upon this to include more OIDC claims?
     string id = 1;
 
     // Unix timestamp of the expiry of the token.
