@@ -470,53 +470,41 @@ message KafkaInterfaceSecurityReport {
     // Interface name
     string name = 1;
     
-    // Host address
-    string host = 2;
+    // Host and port
+    HostPort endpoint = 2;
     
-    // Port number
-    int32 port = 3;
-    
-    // Advertised host
-    string advertised_host = 4;
-    
-    // Advertised port
-    int32 advertised_port = 5;
+    // Advertised host and port
+    HostPort advertised_endpoint = 3;
     
     // TLS enabled flag
-    bool tls_enabled = 6;
+    bool tls_enabled = 4;
     
     // Mutual TLS enabled flag
-    bool mutual_tls_enabled = 7;
+    bool mutual_tls_enabled = 5;
     
     // Authentication method
-    AuthenticationMethod authentication_method = 8;
+    AuthenticationMethod authentication_method = 6;
     
     // Authorization enabled flag
-    bool authorization_enabled = 9;
+    bool authorization_enabled = 7;
     
     // Supported SASL mechanisms
-    repeated string supported_sasl_mechanisms = 10;
+    repeated string supported_sasl_mechanisms = 8;
 }
 
 // Security report for RPC interface
 message RpcInterfaceSecurityReport {
-    // Host address
-    string host = 1;
+    // Host and port
+    HostPort endpoint = 1;
     
-    // Port number
-    int32 port = 2;
-    
-    // Advertised host
-    string advertised_host = 3;
-    
-    // Advertised port
-    int32 advertised_port = 4;
+    // Advertised host and port
+    HostPort advertised_endpoint = 2;
     
     // TLS enabled flag
-    bool tls_enabled = 5;
+    bool tls_enabled = 3;
     
     // Mutual TLS enabled flag
-    bool mutual_tls_enabled = 6;
+    bool mutual_tls_enabled = 4;
 }
 
 // Security report for Admin interfaces
@@ -531,23 +519,20 @@ message AdminInterfaceSecurityReport {
     // Interface name
     string name = 1;
     
-    // Host address
-    string host = 2;
-    
-    // Port number
-    int32 port = 3;
+    // Host and port
+    HostPort endpoint = 2;
     
     // TLS enabled flag
-    bool tls_enabled = 4;
+    bool tls_enabled = 3;
     
     // Mutual TLS enabled flag
-    bool mutual_tls_enabled = 5;
+    bool mutual_tls_enabled = 4;
     
     // Authentication methods
-    repeated AuthenticationMethod authentication_methods = 6;
+    repeated AuthenticationMethod authentication_methods = 5;
     
     // Authorization enabled flag
-    bool authorization_enabled = 7;
+    bool authorization_enabled = 6;
 }
 
 // Security report for Schema Registry interfaces
@@ -562,23 +547,20 @@ message SchemaRegistryInterfaceSecurityReport {
     // Interface name
     string name = 1;
     
-    // Host address
-    string host = 2;
-    
-    // Port number
-    int32 port = 3;
+    // Host and port
+    HostPort endpoint = 2;
     
     // TLS enabled flag
-    bool tls_enabled = 4;
+    bool tls_enabled = 3;
     
     // Mutual TLS enabled flag
-    bool mutual_tls_enabled = 5;
+    bool mutual_tls_enabled = 4;
     
     // Authentication methods
-    repeated AuthenticationMethod authentication_methods = 6;
+    repeated AuthenticationMethod authentication_methods = 5;
     
     // Authorization enabled flag
-    bool authorization_enabled = 7;
+    bool authorization_enabled = 6;
 }
 
 // Security report for HTTP Proxy interfaces
@@ -601,32 +583,26 @@ message HttpProxyInterfaceSecurityReport {
     // Interface name
     string name = 1;
     
-    // Host address
-    string host = 2;
+    // Host and port
+    HostPort endpoint = 2;
     
-    // Port number
-    int32 port = 3;
-    
-    // Advertised host
-    string advertised_host = 4;
-    
-    // Advertised port
-    int32 advertised_port = 5;
+    // Advertised host and port
+    HostPort advertised_endpoint = 3;
     
     // TLS enabled flag
-    bool tls_enabled = 6;
+    bool tls_enabled = 4;
     
     // Mutual TLS enabled flag
-    bool mutual_tls_enabled = 7;
+    bool mutual_tls_enabled = 5;
     
     // Authentication methods for the interface
-    repeated AuthenticationMethod authentication_methods = 8;
+    repeated AuthenticationMethod authentication_methods = 6;
     
     // Authorization enabled flag
-    bool authorization_enabled = 9;
+    bool authorization_enabled = 7;
     
     // Configured authentication method for client connections
-    ConfiguredAuthenticationMethod configured_authentication_method = 10;
+    ConfiguredAuthenticationMethod configured_authentication_method = 8;
 }
 
 // Security report for client interfaces
