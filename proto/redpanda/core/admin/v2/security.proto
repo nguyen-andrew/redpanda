@@ -104,6 +104,12 @@ service SecurityService {
         };
     }
 
+    rpc AddRoleMembers(AddRoleMembersRequest) returns (AddRoleMembersResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
     rpc ResolveOidcIdentity(ResolveOidcIdentityRequest) returns (ResolveOidcIdentityResponse) {
         option (pbgen.rpc) = {
             authz: USER
@@ -328,6 +334,21 @@ message EnumerateRoleMembersResponse {
         (google.api.field_behavior) = OUTPUT_ONLY
     ];
 }
+
+message AddRoleMembersRequest {
+    string role_name = 1 [
+        (google.api.field_behavior) = REQUIRED,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.SecurityService/Role"
+        }
+    ];
+
+    repeated RoleMember members = 2 [
+        (google.api.field_behavior) = REQUIRED
+    ];
+}
+
+message AddRoleMembersResponse {}
 
 message ResolveOidcIdentityRequest {}
 
