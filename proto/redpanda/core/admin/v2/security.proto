@@ -419,7 +419,7 @@ message RoleMember {
 message SecurityReport {
     // Interface-specific security reports
     InterfacesReport interfaces = 1;
-    
+
     // Security alerts
     repeated SecurityReportAlert alerts = 2;
 }
@@ -428,22 +428,22 @@ message SecurityReport {
 message InterfacesReport {
     // Kafka interface reports
     repeated KafkaInterfaceSecurityReport kafka = 1;
-    
+
     // RPC interface report
     RpcInterfaceSecurityReport rpc = 2;
-    
+
     // Admin interface reports
     repeated AdminInterfaceSecurityReport admin = 3;
-    
+
     // Schema registry interface reports
     repeated SchemaRegistryInterfaceSecurityReport schema_registry = 4;
-    
+
     // Schema registry client report
     ClientSecurityReport schema_registry_client = 5;
-    
+
     // HTTP Proxy interface reports
     repeated HttpProxyInterfaceSecurityReport http_proxy = 6;
-    
+
     // Audit log client report
     ClientSecurityReport audit_log_client = 7;
 }
@@ -452,7 +452,7 @@ message InterfacesReport {
 message HostPort {
     // Host address
     string host = 1;
-    
+
     // Port number
     int32 port = 2;
 }
@@ -466,28 +466,28 @@ message KafkaInterfaceSecurityReport {
         MTLS = 2;
         NONE = 3;
     }
-    
+
     // Interface name
     string name = 1;
-    
+
     // Host and port
     HostPort endpoint = 2;
-    
+
     // Advertised host and port
     HostPort advertised_endpoint = 3;
-    
+
     // TLS enabled flag
     bool tls_enabled = 4;
-    
+
     // Mutual TLS enabled flag
     bool mutual_tls_enabled = 5;
-    
+
     // Authentication method
     AuthenticationMethod authentication_method = 6;
-    
+
     // Authorization enabled flag
     bool authorization_enabled = 7;
-    
+
     // Supported SASL mechanisms
     repeated string supported_sasl_mechanisms = 8;
 }
@@ -496,13 +496,13 @@ message KafkaInterfaceSecurityReport {
 message RpcInterfaceSecurityReport {
     // Host and port
     HostPort endpoint = 1;
-    
+
     // Advertised host and port
     HostPort advertised_endpoint = 2;
-    
+
     // TLS enabled flag
     bool tls_enabled = 3;
-    
+
     // Mutual TLS enabled flag
     bool mutual_tls_enabled = 4;
 }
@@ -515,22 +515,22 @@ message AdminInterfaceSecurityReport {
         BASIC = 1;
         OIDC = 2;
     }
-    
+
     // Interface name
     string name = 1;
-    
+
     // Host and port
     HostPort endpoint = 2;
-    
+
     // TLS enabled flag
     bool tls_enabled = 3;
-    
+
     // Mutual TLS enabled flag
     bool mutual_tls_enabled = 4;
-    
+
     // Authentication methods
     repeated AuthenticationMethod authentication_methods = 5;
-    
+
     // Authorization enabled flag
     bool authorization_enabled = 6;
 }
@@ -543,22 +543,22 @@ message SchemaRegistryInterfaceSecurityReport {
         BASIC = 1;
         OIDC = 2;
     }
-    
+
     // Interface name
     string name = 1;
-    
+
     // Host and port
     HostPort endpoint = 2;
-    
+
     // TLS enabled flag
     bool tls_enabled = 3;
-    
+
     // Mutual TLS enabled flag
     bool mutual_tls_enabled = 4;
-    
+
     // Authentication methods
     repeated AuthenticationMethod authentication_methods = 5;
-    
+
     // Authorization enabled flag
     bool authorization_enabled = 6;
 }
@@ -572,35 +572,35 @@ message HttpProxyInterfaceSecurityReport {
         SCRAM_CONFIGURED = 2;
         SCRAM_PROXIED = 3;
     }
-    
+
     // Authentication method enum for HTTP Proxy interface
     enum AuthenticationMethod {
         AUTHENTICATION_METHOD_UNSPECIFIED = 0;
         BASIC = 1;
         OIDC = 2;
     }
-    
+
     // Interface name
     string name = 1;
-    
+
     // Host and port
     HostPort endpoint = 2;
-    
+
     // Advertised host and port
     HostPort advertised_endpoint = 3;
-    
+
     // TLS enabled flag
     bool tls_enabled = 4;
-    
+
     // Mutual TLS enabled flag
     bool mutual_tls_enabled = 5;
-    
+
     // Authentication methods for the interface
     repeated AuthenticationMethod authentication_methods = 6;
-    
+
     // Authorization enabled flag
     bool authorization_enabled = 7;
-    
+
     // Configured authentication method for client connections
     ConfiguredAuthenticationMethod configured_authentication_method = 8;
 }
@@ -614,19 +614,19 @@ message ClientSecurityReport {
         SCRAM_CONFIGURED = 2;
         SCRAM_EPHEMERAL = 3;
     }
-    
+
     // Kafka listener name
     string kafka_listener_name = 1;
-    
+
     // Broker endpoints
     repeated HostPort brokers = 2;
-    
+
     // TLS enabled flag
     bool tls_enabled = 3;
-    
+
     // Mutual TLS enabled flag
     bool mutual_tls_enabled = 4;
-    
+
     // Configured authentication method
     ConfiguredAuthenticationMethod configured_authentication_method = 5;
 }
@@ -644,7 +644,7 @@ message SecurityReportAlert {
         HTTP_PROXY = 6;
         AUDIT_LOG_CLIENT = 7;
     }
-    
+
     // Issue type enum
     enum Issue {
         ISSUE_UNSPECIFIED = 0;
@@ -656,16 +656,16 @@ message SecurityReportAlert {
         INSECURE_MIN_TLS_VERSION = 6;
         TLS_RENEGOTIATION = 7;
     }
-    
+
     // Affected interface
     AffectedInterface affected_interface = 1;
-    
+
     // Listener name (optional)
     string listener_name = 2;
-    
+
     // Issue type
     Issue issue = 3;
-    
+
     // Human-readable description
     string description = 4;
 }
