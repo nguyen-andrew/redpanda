@@ -68,12 +68,6 @@ service SecurityService {
         };
     }
 
-    rpc BatchGetRoles(BatchGetRolesRequest) returns (BatchGetRolesResponse) {
-        option (pbgen.rpc) = {
-            authz: SUPERUSER
-        };
-    };
-
     rpc ListRoles(ListRolesRequest) returns (ListRolesResponse) {
         option (pbgen.rpc) = {
             authz: SUPERUSER
@@ -260,19 +254,6 @@ message GetRoleResponse {
     Role role = 1;
 }
 
-message BatchGetRolesRequest {
-    repeated string names = 1 [
-        (google.api.field_behavior) = REQUIRED,
-        (google.api.resource_reference) = {
-            type: "redpanda.core.admin.SecurityService/Role"
-        }
-    ];
-}
-
-message BatchGetRolesResponse {
-    repeated Role roles = 1;
-}
-
 message ListRolesRequest {}
 
 message ListRolesResponse {
@@ -316,8 +297,7 @@ message EnumerateCurrentUserRolesRequest {}
 message EnumerateCurrentUserRolesResponse {
     // The names of the roles the current user is a member of.
     // Not returning the full Role resources to avoid leaking information
-    // about other members of the roles. If a superuser wants that 
-    // information, they can then call BatchGetRoles using these role names.
+    // about other members of the roles.
     repeated string roles = 1 [
         (google.api.field_behavior) = OUTPUT_ONLY,
         (google.api.resource_reference) = {
