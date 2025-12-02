@@ -139,8 +139,10 @@ message ScramCredential {
         pattern: "scram_credentials/{scram_credential}"
     };
 
-    // See [AIP-203](https://google.aip.dev/203#identifier) for details on IDENTIFIER.
-    string name = 1 [(google.api.field_behavior) = IDENTIFIER];
+    string name = 1 [
+        (google.api.field_behavior) = REQUIRED, 
+        (google.api.field_behavior) = IMMUTABLE
+    ];
 
     enum ScramMechanism {
         SCRAM_MECHANISM_UNSPECIFIED = 0;
@@ -171,9 +173,7 @@ message Role {
 /* RPC Requests and Responses */
 // =============================================
 message CreateScramCredentialRequest {
-    string username = 1 [(google.api.field_behavior) = REQUIRED];
-
-    ScramCredential scram_credential = 2 [(google.api.field_behavior) = REQUIRED];
+    ScramCredential scram_credential = 1 [(google.api.field_behavior) = REQUIRED];
 }
 
 message CreateScramCredentialResponse {
