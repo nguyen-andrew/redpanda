@@ -74,18 +74,6 @@ service SecurityService {
         };
     }
 
-    rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse) {
-        option (pbgen.rpc) = {
-            authz: SUPERUSER
-        };
-    }
-
-    rpc EnumerateCurrentUserRoles(EnumerateCurrentUserRolesRequest) returns (EnumerateCurrentUserRolesResponse) {
-        option (pbgen.rpc) = {
-            authz: USER
-        };
-    }
-
     rpc AddRoleMembers(AddRoleMembersRequest) returns (AddRoleMembersResponse) {
         option (pbgen.rpc) = {
             authz: SUPERUSER
@@ -95,6 +83,18 @@ service SecurityService {
     rpc RemoveRoleMembers(RemoveRoleMembersRequest) returns (RemoveRoleMembersResponse) {
         option (pbgen.rpc) = {
             authz: SUPERUSER
+        };
+    }
+
+    rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse) {
+        option (pbgen.rpc) = {
+            authz: SUPERUSER
+        };
+    }
+
+    rpc EnumerateCurrentUserRoles(EnumerateCurrentUserRolesRequest) returns (EnumerateCurrentUserRolesResponse) {
+        option (pbgen.rpc) = {
+            authz: USER
         };
     }
 
@@ -245,34 +245,6 @@ message ListRolesResponse {
     repeated Role roles = 1;
 }
 
-message DeleteRoleRequest {
-    string name = 1 [
-        (google.api.field_behavior) = REQUIRED,
-        (google.api.resource_reference) = {
-            type: "redpanda.core.admin.SecurityService/Role"
-        }
-    ];
-
-    // If true, delete all ACLs associated with this role
-    bool delete_acls = 2;
-}
-
-message DeleteRoleResponse {}
-
-message EnumerateCurrentUserRolesRequest {}
-
-message EnumerateCurrentUserRolesResponse {
-    // The names of the roles the current user is a member of.
-    // Not returning the full Role resources to avoid leaking information
-    // about other members of the roles.
-    repeated string roles = 1 [
-        (google.api.field_behavior) = OUTPUT_ONLY,
-        (google.api.resource_reference) = {
-            type: "redpanda.core.admin.SecurityService/Role"
-        }
-    ];
-}
-
 message AddRoleMembersRequest {
     string role_name = 1 [
         (google.api.field_behavior) = REQUIRED,
@@ -302,6 +274,34 @@ message RemoveRoleMembersRequest {
 }
 
 message RemoveRoleMembersResponse {}
+
+message DeleteRoleRequest {
+    string name = 1 [
+        (google.api.field_behavior) = REQUIRED,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.SecurityService/Role"
+        }
+    ];
+
+    // If true, delete all ACLs associated with this role
+    bool delete_acls = 2;
+}
+
+message DeleteRoleResponse {}
+
+message EnumerateCurrentUserRolesRequest {}
+
+message EnumerateCurrentUserRolesResponse {
+    // The names of the roles the current user is a member of.
+    // Not returning the full Role resources to avoid leaking information
+    // about other members of the roles.
+    repeated string roles = 1 [
+        (google.api.field_behavior) = OUTPUT_ONLY,
+        (google.api.resource_reference) = {
+            type: "redpanda.core.admin.SecurityService/Role"
+        }
+    ];
+}
 
 message ResolveOidcIdentityRequest {}
 
