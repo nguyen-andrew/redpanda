@@ -349,9 +349,7 @@ message ResolveOidcIdentityRequest {}
 
 message ResolveOidcIdentityResponse {
     // Mapped principal for authorization.
-    // ❓: Is there a better name for this field (e.g. subject or acl principal name)?
-    // ❓: Do we want to expand upon this to include more OIDC claims?
-    string id = 1;
+    string principal = 1;
 
     // Unix timestamp of the expiry of the token.
     google.protobuf.Timestamp expire = 2;
