@@ -92,12 +92,6 @@ service SecurityService {
         };
     }
 
-    rpc EnumerateRoleMembers(EnumerateRoleMembersRequest) returns (EnumerateRoleMembersResponse) {
-        option (pbgen.rpc) = {
-            authz: SUPERUSER
-        };
-    }
-
     rpc AddRoleMembers(AddRoleMembersRequest) returns (AddRoleMembersResponse) {
         option (pbgen.rpc) = {
             authz: SUPERUSER
@@ -170,6 +164,8 @@ message Role {
         (google.api.field_behavior) = REQUIRED, 
         (google.api.field_behavior) = IMMUTABLE
     ];
+
+    repeated RoleMember members = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // =============================================
@@ -298,21 +294,6 @@ message EnumerateCurrentUserRolesResponse {
         (google.api.resource_reference) = {
             type: "redpanda.core.admin.SecurityService/Role"
         }
-    ];
-}
-
-message EnumerateRoleMembersRequest {
-    string role_name = 1 [
-        (google.api.field_behavior) = REQUIRED,
-        (google.api.resource_reference) = {
-            type: "redpanda.core.admin.SecurityService/Role"
-        }
-    ];
-}
-
-message EnumerateRoleMembersResponse {
-    repeated RoleMember members = 1 [
-        (google.api.field_behavior) = OUTPUT_ONLY
     ];
 }
 
