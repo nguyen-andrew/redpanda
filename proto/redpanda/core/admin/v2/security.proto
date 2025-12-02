@@ -74,12 +74,6 @@ service SecurityService {
         };
     }
 
-    rpc UpdateRole(UpdateRoleRequest) returns (UpdateRoleResponse) {
-        option (pbgen.rpc) = {
-            authz: SUPERUSER
-        };
-    }
-
     rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse) {
         option (pbgen.rpc) = {
             authz: SUPERUSER
@@ -249,24 +243,6 @@ message ListRolesRequest {}
 
 message ListRolesResponse {
     repeated Role roles = 1;
-}
-
-message UpdateRoleRequest {
-    Role role = 1 [(google.api.field_behavior) = REQUIRED];
-
-    // The list of fields to update
-    // See [AIP-134](https://google.aip.dev/134) for how to use `field_mask`
-    google.protobuf.FieldMask update_mask = 2;
-
-    // If set to true, and the role is not found, a new role will be created.
-    // In this situation, `update_mask` is ignored.
-    // References:
-    // - https://google.aip.dev/134#create-or-update
-    bool allow_missing = 3;
-}
-
-message UpdateRoleResponse {
-    Role role = 1;
 }
 
 message DeleteRoleRequest {
