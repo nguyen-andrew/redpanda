@@ -32,7 +32,7 @@ service SecurityService {
         };
     }
 
-    rpc GetScramCredentials(GetScramCredentialsRequest) returns (GetScramCredentialsResponse) {
+    rpc GetScramCredential(GetScramCredentialRequest) returns (GetScramCredentialResponse) {
         option (pbgen.rpc) = {
             authz: SUPERUSER
         };
@@ -186,7 +186,7 @@ message CreateScramCredentialResponse {
     ScramCredential scram_credential = 1;
 }
 
-message GetScramCredentialsRequest {
+message GetScramCredentialRequest {
     string name = 1 [
         (google.api.field_behavior) = REQUIRED,
         (google.api.resource_reference) = {
@@ -195,7 +195,7 @@ message GetScramCredentialsRequest {
     ];
 }
 
-message GetScramCredentialsResponse {
+message GetScramCredentialResponse {
     ScramCredential scram_credential = 1;
 }
 
