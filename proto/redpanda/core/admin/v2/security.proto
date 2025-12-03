@@ -159,7 +159,7 @@ message Role {
         (google.api.field_behavior) = IMMUTABLE
     ];
 
-    repeated RoleMember members = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+    repeated RoleMember members = 2;
 }
 
 // =============================================
