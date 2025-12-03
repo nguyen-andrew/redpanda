@@ -74,12 +74,14 @@ service SecurityService {
         };
     }
 
+    // Add members to a role. If a member is already part of the role, it is ignored.
     rpc AddRoleMembers(AddRoleMembersRequest) returns (AddRoleMembersResponse) {
         option (pbgen.rpc) = {
             authz: SUPERUSER
         };
     }
 
+    // Remove members from a role. If a member is not part of the role, it is ignored.
     rpc RemoveRoleMembers(RemoveRoleMembersRequest) returns (RemoveRoleMembersResponse) {
         option (pbgen.rpc) = {
             authz: SUPERUSER
