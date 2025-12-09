@@ -487,3 +487,24 @@ redpanda_test_cc_library(
         "//src/v/random:generators",
     ],
 )
+
+redpanda_cc_btest(
+    name = "avro_field_name_test",
+    timeout = "short",
+    srcs = [
+        "avro_field_name_test.cc",
+    ],
+    deps = [
+        ":avro_payloads",
+        ":client_utils",
+        "//src/v/pandaproxy:core",
+        "//src/v/pandaproxy:error",
+        "//src/v/pandaproxy:json",
+        "//src/v/pandaproxy/schema_registry:core",
+        "//src/v/pandaproxy/test:fixture",
+        "//src/v/pandaproxy/test:utils",
+        "//src/v/test_utils:seastar_boost",
+        "@seastar",
+        "@seastar//:testing",
+    ],
+)
