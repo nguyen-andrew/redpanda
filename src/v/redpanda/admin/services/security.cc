@@ -11,13 +11,12 @@
 
 #include "redpanda/admin/services/security.h"
 
+#include "cluster/controller.h"
 #include "kafka/server/server.h"
 #include "redpanda/admin/proxy/context.h"
 #include "security/oidc_authenticator.h"
 #include "security/oidc_service.h"
 #include "security/request_auth.h"
-
-#include <seastar/core/coroutine.hh>
 
 namespace admin {
 
@@ -33,6 +32,55 @@ security_service_impl::security_service_impl(
   : _proxy_client(std::move(proxy_client))
   , _controller(controller)
   , _kafka_server(kafka_server) {}
+
+seastar::future<proto::admin::create_role_response>
+security_service_impl::create_role(
+  serde::pb::rpc::context, proto::admin::create_role_request) {
+    throw serde::pb::rpc::unimplemented_exception(
+      "CreateRole is not implemented yet");
+}
+
+seastar::future<proto::admin::get_role_response>
+security_service_impl::get_role(
+  serde::pb::rpc::context, proto::admin::get_role_request) {
+    throw serde::pb::rpc::unimplemented_exception(
+      "GetRole is not implemented yet");
+}
+
+seastar::future<proto::admin::list_roles_response>
+security_service_impl::list_roles(
+  serde::pb::rpc::context, proto::admin::list_roles_request) {
+    throw serde::pb::rpc::unimplemented_exception(
+      "ListRoles is not implemented yet");
+}
+
+seastar::future<proto::admin::add_role_members_response>
+security_service_impl::add_role_members(
+  serde::pb::rpc::context, proto::admin::add_role_members_request) {
+    throw serde::pb::rpc::unimplemented_exception(
+      "AddRoleMembers is not implemented yet");
+}
+
+seastar::future<proto::admin::remove_role_members_response>
+security_service_impl::remove_role_members(
+  serde::pb::rpc::context, proto::admin::remove_role_members_request) {
+    throw serde::pb::rpc::unimplemented_exception(
+      "RemoveRoleMembers is not implemented yet");
+}
+
+seastar::future<proto::admin::delete_role_response>
+security_service_impl::delete_role(
+  serde::pb::rpc::context, proto::admin::delete_role_request) {
+    throw serde::pb::rpc::unimplemented_exception(
+      "DeleteRole is not implemented yet");
+}
+
+seastar::future<proto::admin::list_current_user_roles_response>
+security_service_impl::list_current_user_roles(
+  serde::pb::rpc::context, proto::admin::list_current_user_roles_request) {
+    throw serde::pb::rpc::unimplemented_exception(
+      "ListCurrentUserRoles is not implemented yet");
+}
 
 seastar::future<proto::admin::resolve_oidc_identity_response>
 security_service_impl::resolve_oidc_identity(

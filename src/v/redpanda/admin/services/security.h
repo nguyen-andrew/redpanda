@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "cluster/controller.h"
+#include "cluster/fwd.h"
 #include "kafka/server/fwd.h"
 #include "proto/redpanda/core/admin/v2/security.proto.h"
 #include "redpanda/admin/proxy/client.h"
@@ -25,13 +25,40 @@ public:
       cluster::controller* controller,
       ss::sharded<kafka::server>& kafka_server);
 
+    seastar::future<proto::admin::create_role_response> create_role(
+      serde::pb::rpc::context, proto::admin::create_role_request) override;
+
+    seastar::future<proto::admin::get_role_response> get_role(
+      serde::pb::rpc::context, proto::admin::get_role_request) override;
+
+    seastar::future<proto::admin::list_roles_response> list_roles(
+      serde::pb::rpc::context, proto::admin::list_roles_request) override;
+
+    seastar::future<proto::admin::add_role_members_response> add_role_members(
+      serde::pb::rpc::context, proto::admin::add_role_members_request) override;
+
+    seastar::future<proto::admin::remove_role_members_response>
+      remove_role_members(
+        serde::pb::rpc::context,
+        proto::admin::remove_role_members_request) override;
+
+    seastar::future<proto::admin::delete_role_response> delete_role(
+      serde::pb::rpc::context, proto::admin::delete_role_request) override;
+
+    seastar::future<proto::admin::list_current_user_roles_response>
+      list_current_user_roles(
+        serde::pb::rpc::context,
+        proto::admin::list_current_user_roles_request) override;
+
     seastar::future<proto::admin::resolve_oidc_identity_response>
       resolve_oidc_identity(
         serde::pb::rpc::context,
         proto::admin::resolve_oidc_identity_request) override;
+
     seastar::future<proto::admin::refresh_oidc_keys_response> refresh_oidc_keys(
       serde::pb::rpc::context,
       proto::admin::refresh_oidc_keys_request) override;
+
     seastar::future<proto::admin::revoke_oidc_sessions_response>
       revoke_oidc_sessions(
         serde::pb::rpc::context,
