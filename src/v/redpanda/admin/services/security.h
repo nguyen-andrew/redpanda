@@ -23,7 +23,8 @@ public:
     security_service_impl(
       admin::proxy::client proxy_client,
       cluster::controller* controller,
-      ss::sharded<kafka::server>& kafka_server);
+      ss::sharded<kafka::server>& kafka_server,
+      ss::sharded<cluster::metadata_cache>& md_cache);
 
     seastar::future<proto::admin::create_role_response> create_role(
       serde::pb::rpc::context, proto::admin::create_role_request) override;
@@ -68,6 +69,7 @@ private:
     admin::proxy::client _proxy_client;
     cluster::controller* _controller;
     ss::sharded<kafka::server>& _kafka_server;
+    ss::sharded<cluster::metadata_cache>& _md_cache;
 };
 
 } // namespace admin

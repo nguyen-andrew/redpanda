@@ -52,6 +52,7 @@ redpanda_cc_library(
     srcs = ["security.cc"],
     hdrs = ["security.h"],
     implementation_deps = [
+        ":utils",
         "//src/v/redpanda/admin/proxy:context",
         "//src/v/security",
         "//src/v/security:request_auth",
