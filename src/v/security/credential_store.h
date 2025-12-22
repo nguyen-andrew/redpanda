@@ -85,7 +85,7 @@ public:
     //
     // E.g.:
     // _creds.range(credential_store::is_not_ephemeral);
-    auto range(auto pred) {
+    auto range(auto pred) const {
         return boost::adaptors::filter(_credentials, std::move(pred));
     }
     void clear() { _credentials.clear(); }
