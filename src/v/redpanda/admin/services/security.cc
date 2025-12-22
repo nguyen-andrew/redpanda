@@ -23,6 +23,7 @@
 #include "security/role.h"
 #include "security/role_store.h"
 #include "security/scram_algorithm.h"
+#include "security/scram_credential.h"
 #include "security/types.h"
 #include "serde/protobuf/rpc.h"
 
@@ -67,12 +68,9 @@ bool match_scram_credential(
     }
 }
 
-void validate_pb_scram_credential(
-  const proto::admin::scram_credential& pb_cred) {
-    const auto& name = pb_cred.get_name();
-
+void validate_scram_credential_name(const ss::sstring& cred_name) {
     try {
-        validate_no_control(name);
+        validate_no_control(cred_name);
     } catch (const control_character_present_exception& e) {
         vlog(
           securitylog.warn,
@@ -81,10 +79,17 @@ void validate_pb_scram_credential(
           "SCRAM credential name contains invalid characters");
     }
 
-    if (!security::validate_scram_username(name)) {
+    if (!security::validate_scram_username(cred_name)) {
         throw serde::pb::rpc::invalid_argument_exception(
-          ssx::sformat("Invalid SCRAM username {{{}}}", name));
+          ssx::sformat("Invalid SCRAM credential name {{{}}}", cred_name));
     }
+}
+
+void validate_pb_scram_credential(
+  const proto::admin::scram_credential& pb_cred) {
+    const auto& name = pb_cred.get_name();
+
+    validate_scram_credential_name(name);
 
     const auto& password = pb_cred.get_password();
 
@@ -136,6 +141,31 @@ security::scram_credential convert_to_security_scram_credential(
         throw serde::pb::rpc::invalid_argument_exception(
           ssx::sformat("Unknown SCRAM mechanism: {}", mechanism));
     }
+}
+
+proto::admin::scram_credential convert_to_pb_scram_credential(
+  ss::sstring name, const security::scram_credential& cred) {
+    proto::admin::scram_credential pb_cred;
+
+    // Determine mechanism based on length of stored key
+    if (cred.stored_key().size() == security::scram_sha256::key_size) {
+        pb_cred.set_mechanism(
+          proto::admin::scram_credential_scram_mechanism::scram_sha_256);
+    } else if (cred.stored_key().size() == security::scram_sha512::key_size) {
+        pb_cred.set_mechanism(
+          proto::admin::scram_credential_scram_mechanism::scram_sha_512);
+    } else {
+        vlog(
+          securitylog.error,
+          "Unknown SCRAM stored key size for user '{}': {}",
+          name,
+          cred.stored_key().size());
+        throw serde::pb::rpc::internal_exception(
+          ssx::sformat("Unknown SCRAM stored key size for user '{}'", name));
+    }
+
+    pb_cred.set_name(std::move(name));
+    return pb_cred;
 }
 
 void validate_role_name(const ss::sstring& role_name) {
@@ -329,8 +359,27 @@ security_service_impl::create_scram_credential(
 
 seastar::future<proto::admin::get_scram_credential_response>
 security_service_impl::get_scram_credential(
-  serde::pb::rpc::context, proto::admin::get_scram_credential_request) {
-    throw serde::pb::rpc::unimplemented_exception("Not implemented");
+  serde::pb::rpc::context, proto::admin::get_scram_credential_request req) {
+    vlog(securitylog.trace, "get_scram_credential: {}", req);
+
+    const auto& req_name = req.get_name();
+    validate_scram_credential_name(req_name);
+
+    const security::credential_user name{req_name};
+    auto cred_opt = _controller->get_credential_store()
+                      .local()
+                      .get<security::scram_credential>(name);
+    if (!cred_opt) {
+        vlog(securitylog.debug, "SCRAM credential '{}' does not exist", name);
+        throw serde::pb::rpc::not_found_exception(
+          ssx::sformat("SCRAM credential '{}' does not exist", name));
+    }
+
+    const auto& cred = cred_opt.value();
+
+    proto::admin::get_scram_credential_response res;
+    res.set_scram_credential(convert_to_pb_scram_credential(req_name, cred));
+    co_return res;
 }
 
 seastar::future<proto::admin::list_scram_credentials_response>
