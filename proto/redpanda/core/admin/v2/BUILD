@@ -106,6 +106,7 @@ proto_library(
         "//proto/redpanda/core/pbgen:rpc_proto",
         "@googleapis//google/api:field_behavior_proto",
         "@googleapis//google/api:resource_proto",
+        "@protobuf//:field_mask_proto",
         "@protobuf//:timestamp_proto",
     ],
 )
@@ -117,6 +118,7 @@ redpanda_proto_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//src/v/serde/protobuf:field_mask",
         "@abseil-cpp//absl/time:time",
     ],
 )
