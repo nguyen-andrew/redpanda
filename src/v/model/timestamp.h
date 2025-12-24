@@ -121,4 +121,35 @@ inline timestamp new_timestamp() {
 }
 
 inline timestamp timestamp::now() { return new_timestamp(); }
+
+/// \brief A simple wrapper that associates a value of type T with a model::timestamp.
+template<typename T>
+class Timestamped {
+public:
+    Timestamped() = default;
+    
+    template <class U>
+    Timestamped(U&& value, timestamp ts)
+    : _value(std::forward<U>(value))
+    , _ts(ts) {}
+
+    const T& value() const { return _value; }
+    T& value() { return _value; }
+
+    const timestamp& ts() const { return _ts; }
+    timestamp& ts() { return _ts; }
+
+    bool operator==(const Timestamped& other) const {
+        return _value == other._value && _ts == other._ts;
+    }
+
+    bool operator!=(const Timestamped& other) const {
+        return !(*this == other);
+    }
+
+private:
+    T _value;
+    timestamp _ts = timestamp::now();
+};
+
 } // namespace model

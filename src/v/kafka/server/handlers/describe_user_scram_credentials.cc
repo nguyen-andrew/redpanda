@@ -143,7 +143,7 @@ ss::future<response_ptr> describe_user_scram_credentials_handler::handle(
     if (list_all_users) {
         for (const auto& c : ctx.credentials().range(
                security::credential_store::is_not_ephemeral)) {
-            const auto& creds = std::get<security::scram_credential>(c.second);
+            const auto& creds = std::get<security::scram_credential>(c.second.value());
             res.data.results.emplace_back(
               describe_user_scram_credentials_result{
                 .user = scram_user_name{c.first},

@@ -206,7 +206,7 @@ security_manager::fill_snapshot(controller_snapshot& controller_snap) const {
     auto creds = _credentials.local().range(
       security::credential_store::is_not_ephemeral);
     for (const auto& cred : creds) {
-        ss::visit(cred.second, [&](security::scram_credential scram) {
+        ss::visit(cred.second.value(), [&](security::scram_credential scram) {
             snapshot.user_credentials.push_back(
               user_and_credential{
                 security::credential_user{cred.first}, std::move(scram)});

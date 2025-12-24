@@ -11,6 +11,7 @@
 #pragma once
 #include "absl/container/node_hash_map.h"
 #include "bytes/bytes.h"
+#include "model/timestamp.h"
 #include "security/scram_credential.h"
 #include "security/types.h"
 
@@ -35,7 +36,7 @@ public:
     using credential_types = std::variant<scram_credential>;
 
     using container_type
-      = absl::node_hash_map<credential_user, credential_types>;
+      = absl::node_hash_map<credential_user, model::Timestamped<credential_types>>;
     using const_iterator = container_type::const_iterator;
 
     credential_store() noexcept = default;
@@ -47,15 +48,28 @@ public:
 
     template<typename T>
     void put(const credential_user& name, T&& credential) {
-        _credentials.insert_or_assign(name, std::forward<T>(credential));
+        model::Timestamped<credential_types> timestamped_cred{
+          std::forward<T>(credential), model::timestamp::now()};
+        _credentials.insert_or_assign(name, std::move(timestamped_cred));
     }
 
     template<typename T>
     auto get(const credential_user& name) const -> const std::optional<T> {
         if (auto it = _credentials.find(name); it != _credentials.end()) {
             return ss::visit(
-              it->second,
+              it->second.value(),
               [](const T& cred) { return cred; },
+              [](const auto&) { return std::nullopt; });
+        }
+        return std::nullopt;
+    }
+    
+    template<typename T>
+    auto get_timestamped(const credential_user& name) const -> const std::optional<model::Timestamped<T>> {
+        if (auto it = _credentials.find(name); it != _credentials.end()) {
+            return ss::visit(
+              it->second.value(),
+              [it](const T& cred) { return model::Timestamped<T>{cred, it->second.ts()}; },
               [](const auto&) { return std::nullopt; });
         }
         return std::nullopt;
@@ -74,7 +88,7 @@ public:
     // to users.
     static constexpr auto is_not_ephemeral =
       [](const security::credential_store::container_type::value_type& t) {
-          return ss::visit(t.second, [](const security::scram_credential& c) {
+          return ss::visit(t.second.value(), [](const security::scram_credential& c) {
               return !c.principal().has_value()
                      || c.principal().value().type()
                           != security::principal_type::ephemeral_user;

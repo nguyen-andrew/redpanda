@@ -14,6 +14,7 @@
 #include "cluster/controller.h"
 #include "cluster/security_frontend.h"
 #include "kafka/server/server.h"
+#include "model/timestamp.h"
 #include "redpanda/admin/proxy/context.h"
 #include "redpanda/admin/services/utils.h"
 #include "security/credential_store.h"
@@ -142,7 +143,9 @@ security::scram_credential convert_to_security_scram_credential(
 }
 
 proto::admin::scram_credential convert_to_pb_scram_credential(
-  ss::sstring name, const security::scram_credential& cred) {
+  ss::sstring name, const model::Timestamped<security::scram_credential>& timestamped_cred) {
+    const auto& cred = timestamped_cred.value();
+    const auto& timestamp = timestamped_cred.ts();
     proto::admin::scram_credential pb_cred;
 
     // Determine mechanism based on length of stored key
@@ -163,6 +166,7 @@ proto::admin::scram_credential convert_to_pb_scram_credential(
     }
 
     pb_cred.set_name(std::move(name));
+    pb_cred.set_created_at(absl::FromChrono(model::to_time_point(timestamp)));
 
     // TODO: Set "created_at" field when we add it to security::scram_credential
 
@@ -324,7 +328,7 @@ security_service_impl::create_scram_credential(
     }
 
     const auto& cred_store = _controller->get_credential_store().local();
-    const auto& cred_opt = cred_store.get<security::scram_credential>(name);
+    const auto& cred_opt = cred_store.get_timestamped<security::scram_credential>(name);
     if (!cred_opt.has_value()) {
         vlog(
           securitylog.error,
@@ -340,7 +344,7 @@ security_service_impl::create_scram_credential(
     // error.
     if (
       err == cluster::errc::user_exists
-      && !match_scram_credential(pb_cred, cred_opt.value())) {
+      && !match_scram_credential(pb_cred, cred_opt.value().value())) {
         vlog(
           securitylog.debug,
           "User '{}' exists but with different SCRAM credential",
@@ -368,7 +372,7 @@ security_service_impl::get_scram_credential(
     const security::credential_user name{req_name};
     auto cred_opt = _controller->get_credential_store()
                       .local()
-                      .get<security::scram_credential>(name);
+                      .get_timestamped<security::scram_credential>(name);
     if (!cred_opt) {
         vlog(securitylog.debug, "SCRAM credential '{}' does not exist", name);
         throw serde::pb::rpc::not_found_exception(
@@ -397,12 +401,12 @@ security_service_impl::list_scram_credentials(
 
     for (const auto& cred_view : cred_views) {
         const auto& cred_name = cred_view.first;
-        const auto& cred = cred_view.second;
+        const auto& ts_cred_variant = cred_view.second;
         vlog(securitylog.debug, "Found SCRAM credential: {}", cred_name);
-        scram_credentials.push_back(
-          ss::visit(cred, [&cred_name](const security::scram_credential& c) {
-              return convert_to_pb_scram_credential(cred_name, c);
-          }));
+        auto timestamped_cred = ss::visit(ts_cred_variant.value(), [&](const security::scram_credential& c) {
+            return model::Timestamped<security::scram_credential>(c, ts_cred_variant.ts());
+        });
+        scram_credentials.push_back(convert_to_pb_scram_credential(cred_name, timestamped_cred));
     }
 
     co_return res;
@@ -442,7 +446,7 @@ security_service_impl::update_scram_credential(
     const security::credential_user name{pb_cred_update.get_name()};
 
     const auto& cred_store = _controller->get_credential_store().local();
-    const auto& cred_opt = cred_store.get<security::scram_credential>(name);
+    const auto& cred_opt = cred_store.get_timestamped<security::scram_credential>(name);
     if (!cred_opt.has_value()) {
         throw serde::pb::rpc::not_found_exception(
           ssx::sformat("SCRAM credential '{}' does not exist", name));
@@ -488,7 +492,7 @@ security_service_impl::update_scram_credential(
           ssx::sformat("Failed to update SCRAM credential '{}'", name));
     }
 
-    const auto& updated_cred = cred_store.get<security::scram_credential>(name);
+    const auto& updated_cred = cred_store.get_timestamped<security::scram_credential>(name);
     if (!updated_cred.has_value()) {
         vlog(
           securitylog.error,
