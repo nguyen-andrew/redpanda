@@ -36,6 +36,9 @@ void validate_pb_scram_credential(
 security::scram_credential convert_to_security_scram_credential(
   const proto::admin::scram_credential& pb_cred);
 
+proto::admin::scram_credential convert_to_pb_scram_credential(
+  ss::sstring name, const security::scram_credential& cred);
+
 void validate_role_name(const ss::sstring& role_name);
 
 security::role_member
