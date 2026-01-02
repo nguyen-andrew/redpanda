@@ -319,6 +319,75 @@ TEST_F(SecurityServiceTest, ConvertToSecurityScramCredentialUnknownMechanism) {
 }
 
 // =============================================
+// Tests for convert_to_pb_scram_credential
+// =============================================
+
+TEST_F(SecurityServiceTest, ConvertToPbScramCredentialSha256) {
+    ss::sstring password = "test_password";
+    ss::sstring name = "test_user";
+
+    // Create a SHA-256 SCRAM credential
+    auto security_cred = security::scram_sha256::make_credentials(
+      password, security::scram_sha256::min_iterations);
+
+    // Convert to protobuf
+    auto pb_cred = convert_to_pb_scram_credential(name, security_cred);
+
+    // Verify the mechanism is set correctly
+    EXPECT_EQ(
+      pb_cred.get_mechanism(),
+      proto::admin::scram_credential_scram_mechanism::
+        scram_mechanism_scram_sha_256);
+    EXPECT_EQ(pb_cred.get_name(), name);
+
+    // The password field is not able to be populated during conversion.
+    // Therefore, the match should fail.
+    EXPECT_TRUE(pb_cred.get_password().empty());
+    EXPECT_FALSE(match_scram_credential(pb_cred, security_cred));
+}
+
+TEST_F(SecurityServiceTest, ConvertToPbScramCredentialSha512) {
+    ss::sstring password = "test_password";
+    ss::sstring name = "test_user";
+
+    // Create a SHA-512 SCRAM credential
+    auto security_cred = security::scram_sha512::make_credentials(
+      password, security::scram_sha512::min_iterations);
+
+    // Convert to protobuf
+    auto pb_cred = convert_to_pb_scram_credential(name, security_cred);
+
+    // Verify the mechanism is set correctly
+    EXPECT_EQ(
+      pb_cred.get_mechanism(),
+      proto::admin::scram_credential_scram_mechanism::
+        scram_mechanism_scram_sha_512);
+    EXPECT_EQ(pb_cred.get_name(), name);
+
+    // The password field is not able to be populated during conversion.
+    // Therefore, the match should fail.
+    EXPECT_TRUE(pb_cred.get_password().empty());
+    EXPECT_FALSE(match_scram_credential(pb_cred, security_cred));
+}
+
+TEST_F(SecurityServiceTest, ConvertToPbScramCredentialUnknownKeySize) {
+    ss::sstring name = "test_user";
+
+    // Create a credential with an invalid stored key size
+    // Using empty keys which will have size 0 (not matching SHA-256 or SHA-512)
+    security::scram_credential invalid_cred{
+      bytes{}, // salt
+      bytes{}, // server_key
+      bytes{}, // stored_key - empty, so size = 0
+      security::scram_sha256::min_iterations};
+
+    // Should throw internal_exception due to unknown key size
+    EXPECT_THROW(
+      convert_to_pb_scram_credential(name, invalid_cred),
+      serde::pb::rpc::internal_exception);
+}
+
+// =============================================
 // Tests for validate_role_name
 // =============================================
 
