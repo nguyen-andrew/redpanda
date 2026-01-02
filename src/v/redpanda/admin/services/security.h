@@ -30,6 +30,9 @@ bool match_scram_credential(
 
 void validate_scram_credential_name(const ss::sstring& cred_name);
 
+void validate_pb_scram_credential(
+  const proto::admin::scram_credential& pb_cred);
+
 void validate_role_name(const ss::sstring& role_name);
 
 security::role_member

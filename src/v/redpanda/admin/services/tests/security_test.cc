@@ -112,6 +112,72 @@ INSTANTIATE_TEST_SUITE_P(
   });
 
 // =============================================
+// Tests for validate_pb_scram_credential
+// =============================================
+
+TEST_F(SecurityServiceTest, ValidatePbScramCredentialValidSha256) {
+    proto::admin::scram_credential pb_cred;
+    pb_cred.set_name("valid_user");
+    pb_cred.set_mechanism(
+      proto::admin::scram_credential_scram_mechanism::scram_sha_256);
+    pb_cred.set_password("a_valid_password_that_is_long_enough");
+
+    // Should not throw
+    EXPECT_NO_THROW(validate_pb_scram_credential(pb_cred));
+}
+
+TEST_F(SecurityServiceTest, ValidatePbScramCredentialValidSha512) {
+    proto::admin::scram_credential pb_cred;
+    pb_cred.set_name("valid_user");
+    pb_cred.set_mechanism(
+      proto::admin::scram_credential_scram_mechanism::scram_sha_512);
+    pb_cred.set_password("a_valid_password_that_is_long_enough");
+
+    // Should not throw
+    EXPECT_NO_THROW(validate_pb_scram_credential(pb_cred));
+}
+
+TEST_F(SecurityServiceTest, ValidatePbScramCredentialInvalidName) {
+    proto::admin::scram_credential pb_cred;
+    pb_cred.set_name("user\nname"); // Newline is invalid
+    pb_cred.set_mechanism(
+      proto::admin::scram_credential_scram_mechanism::scram_sha_256);
+    pb_cred.set_password("a_valid_password_that_is_long_enough");
+
+    // Should throw due to invalid name
+    EXPECT_THROW(
+      validate_pb_scram_credential(pb_cred),
+      serde::pb::rpc::invalid_argument_exception);
+}
+
+TEST_F(SecurityServiceTest, ValidatePbScramCredentialPasswordWithControlChar) {
+    proto::admin::scram_credential pb_cred;
+    pb_cred.set_name("valid_user");
+    pb_cred.set_mechanism(
+      proto::admin::scram_credential_scram_mechanism::scram_sha_256);
+    pb_cred.set_password("password_with\ncontrol"); // Newline in password
+
+    // Should throw due to control character in password
+    EXPECT_THROW(
+      validate_pb_scram_credential(pb_cred),
+      serde::pb::rpc::invalid_argument_exception);
+}
+
+TEST_F(SecurityServiceTest, ValidatePbScramCredentialUnspecifiedMechanism) {
+    proto::admin::scram_credential pb_cred;
+    pb_cred.set_name("valid_user");
+    pb_cred.set_mechanism(
+      proto::admin::scram_credential_scram_mechanism::
+        scram_mechanism_unspecified);
+    pb_cred.set_password("a_valid_password_that_is_long_enough");
+
+    // Should throw due to unspecified mechanism
+    EXPECT_THROW(
+      validate_pb_scram_credential(pb_cred),
+      serde::pb::rpc::invalid_argument_exception);
+}
+
+// =============================================
 // Tests for convert_to_security_role_member
 // =============================================
 
