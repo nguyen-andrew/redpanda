@@ -68,6 +68,50 @@ INSTANTIATE_TEST_SUITE_P(
   });
 
 // =============================================
+// Tests for validate_scram_credential_name
+// =============================================
+
+TEST_F(SecurityServiceTest, ValidateScramCredentialNameValid) {
+    // Valid SCRAM credential names should not throw
+    EXPECT_NO_THROW(validate_scram_credential_name("admin"));
+    EXPECT_NO_THROW(validate_scram_credential_name("user1"));
+    EXPECT_NO_THROW(validate_scram_credential_name("my-cred"));
+    EXPECT_NO_THROW(validate_scram_credential_name("my_cred"));
+    EXPECT_NO_THROW(validate_scram_credential_name("user123"));
+}
+
+// Parameterized tests for invalid SCRAM credential names
+struct InvalidScramCredentialNameCase {
+    ss::sstring name;
+    ss::sstring test_suffix;
+};
+
+class InvalidScramCredentialNameTest
+  : public ::testing::TestWithParam<InvalidScramCredentialNameCase> {};
+
+TEST_P(InvalidScramCredentialNameTest, RejectsInvalidName) {
+    EXPECT_THROW(
+      validate_scram_credential_name(GetParam().name),
+      serde::pb::rpc::invalid_argument_exception);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+  InvalidNames,
+  InvalidScramCredentialNameTest,
+  ::testing::Values(
+    InvalidScramCredentialNameCase{"user\nname", "newline"},
+    InvalidScramCredentialNameCase{"user\tname", "tab"},
+    InvalidScramCredentialNameCase{"user\rname", "carriage_return"},
+    InvalidScramCredentialNameCase{"\x01user", "control_char"},
+    InvalidScramCredentialNameCase{"user,name", "comma"},
+    InvalidScramCredentialNameCase{"user=name", "equals"},
+    InvalidScramCredentialNameCase{"", "empty"},
+    InvalidScramCredentialNameCase{std::string("user\0name", 9), "null_char"}),
+  [](const ::testing::TestParamInfo<InvalidScramCredentialNameCase>& info) {
+      return info.param.test_suffix;
+  });
+
+// =============================================
 // Tests for convert_to_security_role_member
 // =============================================
 
@@ -467,9 +511,10 @@ TEST_F(SecurityServiceTest, MatchScramCredentialUnknownMechanism) {
     // Create protobuf SCRAM credential with an unknown mechanism
     proto::admin::scram_credential pb_cred;
     pb_cred.set_name("test_user");
-    // Set an invalid mechanism by casting to the underlying type
+    // Set an invalid mechanism by using the unspecified enum value
     pb_cred.set_mechanism(
-      static_cast<proto::admin::scram_credential_scram_mechanism>(99));
+      proto::admin::scram_credential_scram_mechanism::
+        scram_mechanism_unspecified);
     pb_cred.set_password(std::move(password));
 
     // Should throw invalid_argument_exception
