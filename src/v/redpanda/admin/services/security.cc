@@ -418,8 +418,28 @@ security_service_impl::get_scram_credential(
 
 seastar::future<proto::admin::list_scram_credentials_response>
 security_service_impl::list_scram_credentials(
-  serde::pb::rpc::context, proto::admin::list_scram_credentials_request) {
-    throw serde::pb::rpc::unimplemented_exception("Not implemented");
+  serde::pb::rpc::context, proto::admin::list_scram_credentials_request req) {
+    vlog(securitylog.trace, "list_scram_credentials: {}", req);
+
+    // TODO: implement filtering based on request parameters
+
+    auto cred_views = _controller->get_credential_store().local().range(
+      security::credential_store::is_not_ephemeral);
+
+    proto::admin::list_scram_credentials_response res;
+    auto& scram_credentials = res.get_scram_credentials();
+
+    for (const auto& cred_view : cred_views) {
+        const auto& cred_name = cred_view.first;
+        const auto& cred = cred_view.second;
+        vlog(securitylog.debug, "Found SCRAM credential: {}", cred_name);
+        scram_credentials.push_back(
+          ss::visit(cred, [&cred_name](const security::scram_credential& c) {
+              return convert_to_pb_scram_credential(cred_name, c);
+          }));
+    }
+
+    co_return res;
 }
 
 seastar::future<proto::admin::update_scram_credential_response>
