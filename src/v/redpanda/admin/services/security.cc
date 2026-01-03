@@ -544,8 +544,49 @@ security_service_impl::update_scram_credential(
 
 seastar::future<proto::admin::delete_scram_credential_response>
 security_service_impl::delete_scram_credential(
-  serde::pb::rpc::context, proto::admin::delete_scram_credential_request) {
-    throw serde::pb::rpc::unimplemented_exception("Not implemented");
+  serde::pb::rpc::context ctx,
+  proto::admin::delete_scram_credential_request req) {
+    vlog(securitylog.trace, "delete_scram_credential: {}", req);
+
+    const auto redirect_node = utils::redirect_to_leader(
+      _md_cache.local(), model::controller_ntp, _proxy_client.self_node_id());
+
+    if (redirect_node) {
+        vlog(
+          securitylog.debug,
+          "Redirecting to leader of {}: {}",
+          model::controller_ntp,
+          *redirect_node);
+        co_return co_await _proxy_client
+          .make_client_for_node<proto::admin::security_service_client>(
+            *redirect_node)
+          .delete_scram_credential(ctx, std::move(req));
+    }
+
+    const auto& req_name = req.get_name();
+    validate_scram_credential_name(req_name);
+
+    const security::credential_user name{req_name};
+
+    auto err
+      = co_await _controller->get_security_frontend().local().delete_user(
+        name, model::timeout_clock::now() + security_operation_timeout);
+    vlog(
+      securitylog.debug,
+      "Deleting SCRAM credential '{}' {}:{}",
+      name,
+      err,
+      err.message());
+
+    if (
+      err != cluster::errc::success
+      && err != cluster::errc::user_does_not_exist) {
+        // Idempotency: removing a non-existent SCRAM credential is successful.
+        throw serde::pb::rpc::unknown_exception(
+          ssx::sformat("Failed to delete SCRAM credential '{}'", name));
+    }
+
+    co_return proto::admin::delete_scram_credential_response{};
 }
 
 seastar::future<proto::admin::create_role_response>
