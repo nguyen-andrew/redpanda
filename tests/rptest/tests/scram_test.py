@@ -1264,29 +1264,19 @@ class InvalidNewUserStrings(BaseScramTest):
                 )
 
     @cluster(num_nodes=3)
-    @matrix(use_v2_api=[False, True])
-    def test_invalid_alg(self, use_v2_api):
+    def test_invalid_alg(self):
         """
-        Validates that algorithms that contain control characters are properly rejected
+        (V1 API only) Validates that algorithms that contain control characters are properly rejected
         """
         algorithm = generate_string_with_control_character(10)
         username = "test"
 
-        if use_v2_api:
-            # TODO: Is this actually meaningful to test with v2 API?
-            mechanism = scram_mechanism_from_string(algorithm)
-            self.create_scram_credential_v2(
-                name=username,
-                mechanism=mechanism,
-                expected_error=ConnectErrorCode.INVALID_ARGUMENT,
-            )
-        else:
-            self.create_user(
-                username=username,
-                algorithm=algorithm,
-                expected_status_code=400,
-                err_msg="Parameter 'algorithm' contained invalid control characters",
-            )
+        self.create_user(
+            username=username,
+            algorithm=algorithm,
+            expected_status_code=400,
+            err_msg="Parameter 'algorithm' contained invalid control characters",
+        )
 
     @cluster(num_nodes=3)
     @matrix(use_v2_api=[False, True])
