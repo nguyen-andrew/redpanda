@@ -114,13 +114,14 @@ void validate_pb_scram_credential(
     }
 
     const auto& mechanism = pb_cred.get_mechanism();
-    if (
-      mechanism
-        != proto::admin::scram_credential_scram_mechanism::
-          scram_mechanism_scram_sha_256
-      && mechanism
-           != proto::admin::scram_credential_scram_mechanism::
-             scram_mechanism_scram_sha_512) {
+    switch (mechanism) {
+    case proto::admin::scram_credential_scram_mechanism::
+        scram_mechanism_scram_sha_256:
+        break;
+    case proto::admin::scram_credential_scram_mechanism::
+        scram_mechanism_scram_sha_512:
+        break;
+    default:
         throw serde::pb::rpc::invalid_argument_exception(
           ssx::sformat("Unknown SCRAM mechanism: {}", mechanism));
     }
