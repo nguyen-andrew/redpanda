@@ -183,7 +183,7 @@ class BaseScramTest(RedpandaTest):
         res = self.admin.security().list_scram_credentials(
             security_pb2.ListScramCredentialsRequest()
         )
-        return [cred.name for cred in res.scram_credentials]
+        return res.scram_credentials
 
     def create_user(
         self, username, algorithm, password=None, expected_status_code=200, err_msg=None
@@ -446,7 +446,7 @@ class ScramTest(BaseScramTest):
         assert topic.name in topics
 
         if use_v2_api:
-            users = self.list_scram_credentials_v2()
+            users = [cred.name for cred in self.list_scram_credentials_v2()]
         else:
             users = self.list_users()
         assert username in users
@@ -506,7 +506,7 @@ class ScramTest(BaseScramTest):
         )
 
         if use_v2_api:
-            users = self.list_scram_credentials_v2()
+            users = [cred.name for cred in self.list_scram_credentials_v2()]
         else:
             users = self.list_users()
         assert test_username in users, f"Expected {test_username} to be in {users}"
@@ -1468,7 +1468,7 @@ class EscapedNewUserStrings(BaseScramTest):
 
         def _users_match(expected: list[str]):
             if use_v2_api:
-                live_users = self.list_scram_credentials_v2()
+                live_users = [cred.name for cred in self.list_scram_credentials_v2()]
             else:
                 live_users = admin.list_users()
 
@@ -1492,7 +1492,7 @@ class EscapedNewUserStrings(BaseScramTest):
             wait_until(lambda: _users_match([]), timeout_sec=5, backoff_sec=0.5)
         except TimeoutError:
             if use_v2_api:
-                live_users = self.list_scram_credentials_v2()
+                live_users = [cred.name for cred in self.list_scram_credentials_v2()]
             else:
                 live_users = admin.list_users()
             live_users.remove(su_username)
