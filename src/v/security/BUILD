@@ -111,6 +111,7 @@ redpanda_cc_library(
         "gssapi.h",
         "gssapi_authenticator.h",
         "gssapi_principal_mapper.h",
+        "group_range.h",
         "jwt.h",
         "krb5.h",
         "krb5_configurator.h",
