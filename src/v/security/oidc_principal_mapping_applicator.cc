@@ -36,9 +36,9 @@ result<acl_principal> principal_mapping_rule_apply(
 }
 
 result<group_range>
-group_policy_apply(const group_claim_policy& policy, const jwt& jwt) {
+group_policy_apply(const group_claim_policy& policy, ss::lw_shared_ptr<const jwt> jwt) {
     const auto& p = policy.group_pointer();
-    auto list_claim_sv = jwt.claim<chunked_vector<std::string_view>>(p);
+    auto list_claim_sv = jwt->claim<chunked_vector<std::string_view>>(p);
     if (list_claim_sv) {
         vlog(
           seclog.trace,
@@ -54,7 +54,7 @@ group_policy_apply(const group_claim_policy& policy, const jwt& jwt) {
         return group_range(std::move(list_claim), policy.nested_behavior());
     }
 
-    auto string_claim = jwt.claim<std::string_view>(p);
+    auto string_claim = jwt->claim<std::string_view>(p);
     if (!string_claim) {
         return group_range{};
     }

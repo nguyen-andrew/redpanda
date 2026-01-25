@@ -83,6 +83,7 @@ redpanda_cc_library(
         "acl.cc",
         "authorizer.cc",
         "credential.cc",
+        "group_range.cc",
         "gssapi_authenticator.cc",
         "gssapi_principal_mapper.cc",
         "jwt.cc",

@@ -13,35 +13,21 @@
 #include "container/chunked_vector.h"
 #include "security/acl.h"
 #include "security/config.h"
+#include "security/jwt.h"
+#include "security/oidc_principal_mapping.h"
 
 #include <seastar/core/sstring.hh>
 #include <seastar/util/variant_utils.hh>
 
 #include <fmt/format.h>
 
+#include <cstddef>
 #include <iterator>
 #include <optional>
 #include <string_view>
 #include <variant>
 
 namespace security {
-
-// TODO: move this?
-inline acl_principal
-apply_nested_group_policy(std::string_view user, oidc::nested_group_behavior b) {
-    switch (b) {
-    case oidc::nested_group_behavior::none:
-        return acl_principal{principal_type::group, ss::sstring{user}};
-    case oidc::nested_group_behavior::suffix: {
-        auto pos = user.find_last_of('/');
-        if (pos == std::string_view::npos) {
-            return acl_principal{principal_type::group, ss::sstring{user}};
-        }
-        return acl_principal{
-          principal_type::group, ss::sstring{user.substr(pos + 1)}};
-    }
-    }
-}
 
 /// \brief Lazy range for ACL group principals
 ///
@@ -68,19 +54,17 @@ class group_range {
 public:
     using value_type = security::acl_principal;
 
+    // Forward declare private types that iterator needs
+    struct jwt_list_state;
+    struct jwt_string_state;
+    struct materialized_state;
+
     // Default constructor creates an empty range with no allocation
     group_range() = default;
 
-    // Own a vector of group names.
-    explicit group_range(chunked_vector<ss::sstring> groups, oidc::nested_group_behavior behavior)
-    : _storage(std::move(groups)), _behavior(behavior) {}
+    group_range(ss::lw_shared_ptr<const oidc::jwt> jwt, const oidc::group_claim_policy& policy);
 
-    // Own a comma-separated list.
-    explicit group_range(ss::sstring comma_separated, oidc::nested_group_behavior behavior)
-    : _storage(std::move(comma_separated)), _behavior(behavior) {}
-
-    explicit group_range(chunked_vector<security::acl_principal> materialized_groups)
-    : _storage(std::move(materialized_groups)) {}
+    explicit group_range(chunked_vector<security::acl_principal> materialized_groups);
 
     group_range(group_range&&) = default;
     group_range& operator=(group_range&&) = default;
@@ -90,40 +74,10 @@ public:
     group_range& operator=(const group_range&) = delete;
 
     /// \brief Explicitly copy this group_range
-    [[nodiscard]] group_range copy() const {
-        return ss::visit(_storage,
-            [](std::monostate const&) -> group_range {
-                return group_range{};
-            },
-            [this](chunked_vector<ss::sstring> const& v) -> group_range {
-                return group_range(v.copy(), _behavior);
-            },
-            [this](ss::sstring const& s) -> group_range {
-                return group_range(s, _behavior);
-            },
-            [](chunked_vector<security::acl_principal> const& v) -> group_range {
-                return group_range(v.copy());
-            }
-        );
-    }
+    [[nodiscard]] group_range copy() const;
 
     /// \brief Check if this group_range is empty (has no groups)
-    [[nodiscard]] bool empty() const noexcept {
-        return ss::visit(_storage,
-            [](std::monostate const&) -> bool {
-                return true;
-            },
-            [](chunked_vector<ss::sstring> const& v) -> bool {
-                return v.empty();
-            },
-            [](ss::sstring const& s) -> bool {
-                return s.empty();
-            },
-            [](chunked_vector<security::acl_principal> const& v) -> bool {
-                return v.empty();
-            }
-        );
-    }
+    [[nodiscard]] bool empty() const noexcept;
 
 
     /// \warning Iterator lifetime is tied to the group_range.
@@ -134,17 +88,16 @@ public:
         using difference_type   = std::ptrdiff_t;
         using reference         = security::acl_principal;
 
-        struct vec_state {
-            oidc::nested_group_behavior _behavior;
-            const chunked_vector<ss::sstring>* v = nullptr;
+        struct jwt_list_it_state {
+            const jwt_list_state* jwt_list_state = nullptr;
             std::size_t index = 0;
         };
 
-        struct split_state {
-            oidc::nested_group_behavior _behavior;
+        struct jwt_string_it_state {
+            const jwt_string_state* jwt_string_state = nullptr;
             std::string_view remaining;
-            std::string_view current;
-            bool at_end = false;
+            std::string_view current{};
+            // bool at_end = false;
 
             void advance() noexcept {
                 if (at_end) {
@@ -169,34 +122,19 @@ public:
             }
         };
 
-        struct materialized_state {
-            const chunked_vector<security::acl_principal>* v = nullptr;
+        struct materialized_it_state {
+            const materialized_state* materialized_state = nullptr;
             std::size_t index = 0;
         };
 
-        using type = std::variant<std::monostate, vec_state, split_state, materialized_state>;
+        using type = std::variant<std::monostate, 
+                                  jwt_list_it_state, 
+                                  jwt_string_it_state, 
+                                  materialized_it_state>;
 
         type _it_state;
 
-        reference operator*() const noexcept {
-            return ss::visit(_it_state,
-                [](std::monostate const&) -> security::acl_principal {
-                    // UB to dereference empty/end iterator
-                    __builtin_unreachable();
-                },
-                [](vec_state const& s) -> security::acl_principal {
-                    return apply_nested_group_policy(s.v->at(s.index), s._behavior);
-                },
-                [](split_state const& s) -> security::acl_principal {
-                    // In split mode, current is always the token for this position.
-                    // (If we're at end, deref is undefined like normal iterators.)
-                    return apply_nested_group_policy(s.current, s._behavior);
-                },
-                [](materialized_state const& s) -> security::acl_principal {
-                    return s.v->at(s.index);
-                }
-            );
-        }
+        reference operator*() const noexcept;
 
         iterator& operator++() noexcept {
             ss::visit(_it_state,
@@ -305,8 +243,23 @@ public:
     }
 
 private:
-    std::variant<std::monostate, chunked_vector<ss::sstring>, ss::sstring, chunked_vector<security::acl_principal>> _storage;
-    oidc::nested_group_behavior _behavior = oidc::nested_group_behavior::none;
+    struct jwt_list_state {
+        ss::lw_shared_ptr<const oidc::jwt> jwt;
+        oidc::group_claim_policy policy;
+        chunked_vector<std::string_view> list_claim;
+    };
+
+    struct jwt_string_state {
+        ss::lw_shared_ptr<const oidc::jwt> jwt;
+        oidc::group_claim_policy policy;
+        std::string_view string_claim;
+    };
+
+    struct materialized_state {
+        chunked_vector<security::acl_principal> materialized_groups;
+    };
+
+    std::variant<std::monostate, jwt_list_state, jwt_string_state, materialized_state> _storage;
 };
 
 } // namespace security

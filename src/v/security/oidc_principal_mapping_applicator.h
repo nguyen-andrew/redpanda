@@ -21,6 +21,6 @@ result<acl_principal>
 principal_mapping_rule_apply(const principal_mapping_rule&, const jwt& jwt);
 
 result<group_range>
-group_policy_apply(const group_claim_policy&, const jwt& jwt);
+group_policy_apply(const group_claim_policy&, ss::lw_shared_ptr<const jwt> jwt);
 
 } // namespace security::oidc
