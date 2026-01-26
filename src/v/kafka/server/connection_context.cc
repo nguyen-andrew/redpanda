@@ -617,8 +617,7 @@ ss::future<> connection_context::handle_auth_v0(const size_t size) {
     co_await conn->write(std::move(msg));
 }
 
-const security::group_range&
-connection_context::get_groups() const {
+const security::group_range& connection_context::get_groups() const {
     if (_sasl && _sasl->has_mechanism()) {
         return _sasl->mechanism().groups();
     }

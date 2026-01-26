@@ -92,10 +92,17 @@ result<authentication_data> authenticate(
         return jwt_res.assume_error();
     }
 
-    auto jwt_ptr = ss::make_lw_shared<const jwt>(std::move(jwt_res).assume_value());
+    auto jwt_ptr = ss::make_lw_shared<const jwt>(
+      std::move(jwt_res).assume_value());
     vlog(seclog.debug, "Claims found in JWT: {}", jwt_ptr->get_claim_names());
     auto a_res = authenticate(
-      jwt_ptr, mapping, group_policy, issuer, audience, clock_skew_tolerance, now);
+      jwt_ptr,
+      mapping,
+      group_policy,
+      issuer,
+      audience,
+      clock_skew_tolerance,
+      now);
     if (a_res.has_error()) {
         vlog(
           seclog.warn,

@@ -1001,11 +1001,10 @@ security_service_impl::resolve_oidc_identity(
           res.assume_value().expiry.time_since_epoch()}));
 
     resp.set_groups(
-    {std::from_range,
-    auth_result->get_groups()
-      | std::views::transform([](const auto& principal) {
-          return principal.name();
-        })});
+      {std::from_range,
+       auth_result->get_groups()
+         | std::views::transform(
+           [](const auto& principal) { return principal.name(); })});
 
     co_return resp;
 }

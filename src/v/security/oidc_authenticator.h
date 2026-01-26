@@ -91,9 +91,7 @@ public:
 
     const char* mechanism_name() const override { return name; }
 
-    const group_range& groups() const override {
-        return _auth_data.groups;
-    }
+    const group_range& groups() const override { return _auth_data.groups; }
 
 private:
     friend std::ostream&

@@ -122,8 +122,7 @@ ss::lw_shared_ptr<const jwt> make_test_jwt(
     auto jwt_result = jwt::make(
       make_jwt_header(), make_jwt_payload(num_groups, format, ngb));
     vassert(jwt_result.has_value(), "Failed to create test JWT");
-    return ss::make_lw_shared<const jwt>(
-      std::move(jwt_result).assume_value());
+    return ss::make_lw_shared<const jwt>(std::move(jwt_result).assume_value());
 }
 
 // JWT with 0 groups
@@ -136,18 +135,18 @@ ss::lw_shared_ptr<const jwt> jwt_10_groups_as_array_not_nested = make_test_jwt(
   10, group_format::array, nested_group_behavior::none);
 ss::lw_shared_ptr<const jwt> jwt_100_groups_as_array_not_nested = make_test_jwt(
   100, group_format::array, nested_group_behavior::none);
-ss::lw_shared_ptr<const jwt> jwt_1000_groups_as_array_not_nested = make_test_jwt(
-  1000, group_format::array, nested_group_behavior::none);
+ss::lw_shared_ptr<const jwt> jwt_1000_groups_as_array_not_nested
+  = make_test_jwt(1000, group_format::array, nested_group_behavior::none);
 
 // JWTs with groups as a comma-delimited string, not nested
 ss::lw_shared_ptr<const jwt> jwt_1_group_as_string_not_nested = make_test_jwt(
   1, group_format::string, nested_group_behavior::none);
 ss::lw_shared_ptr<const jwt> jwt_10_groups_as_string_not_nested = make_test_jwt(
   10, group_format::string, nested_group_behavior::none);
-ss::lw_shared_ptr<const jwt> jwt_100_groups_as_string_not_nested = make_test_jwt(
-  100, group_format::string, nested_group_behavior::none);
-ss::lw_shared_ptr<const jwt> jwt_1000_groups_as_string_not_nested = make_test_jwt(
-  1000, group_format::string, nested_group_behavior::none);
+ss::lw_shared_ptr<const jwt> jwt_100_groups_as_string_not_nested
+  = make_test_jwt(100, group_format::string, nested_group_behavior::none);
+ss::lw_shared_ptr<const jwt> jwt_1000_groups_as_string_not_nested
+  = make_test_jwt(1000, group_format::string, nested_group_behavior::none);
 
 // JWTs with groups as an array, nested
 ss::lw_shared_ptr<const jwt> jwt_1_group_as_array_nested = make_test_jwt(
@@ -170,7 +169,8 @@ ss::lw_shared_ptr<const jwt> jwt_1000_groups_as_string_nested = make_test_jwt(
   1000, group_format::string, nested_group_behavior::suffix);
 
 void run_authenticate(
-  ss::lw_shared_ptr<const jwt> jwt_token, const group_claim_policy& group_policy) {
+  ss::lw_shared_ptr<const jwt> jwt_token,
+  const group_claim_policy& group_policy) {
     result<authentication_data> result = authenticate(
       std::move(jwt_token),
       test_mapping_rule,

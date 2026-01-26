@@ -74,9 +74,12 @@ public:
     // Default constructor creates an empty range with no allocation
     group_range() = default;
 
-    group_range(ss::lw_shared_ptr<const oidc::jwt> jwt, const oidc::group_claim_policy& policy);
+    group_range(
+      ss::lw_shared_ptr<const oidc::jwt> jwt,
+      const oidc::group_claim_policy& policy);
 
-    explicit group_range(chunked_vector<security::acl_principal> materialized_groups);
+    explicit group_range(
+      chunked_vector<security::acl_principal> materialized_groups);
 
     group_range(group_range&&) = default;
     group_range& operator=(group_range&&) = default;
@@ -91,14 +94,13 @@ public:
     /// \brief Check if this group_range is empty (has no groups)
     [[nodiscard]] bool empty() const noexcept;
 
-
     /// \warning Iterator lifetime is tied to the group_range.
     /// Moving or destroying the group_range invalidates all iterators.
     struct iterator {
         using iterator_category = std::forward_iterator_tag;
-        using value_type        = security::acl_principal;
-        using difference_type   = std::ptrdiff_t;
-        using reference         = security::acl_principal;
+        using value_type = security::acl_principal;
+        using difference_type = std::ptrdiff_t;
+        using reference = security::acl_principal;
 
         struct jwt_list_it_state {
             const jwt_list_state* jwt_list_state = nullptr;
@@ -109,35 +111,38 @@ public:
             const jwt_string_state* jwt_string_state = nullptr;
             // Invariant: remaining should not have leading or trailing commas
             std::string_view remaining;
-            // Invariant: current should not have leading or trailing whitespaces
+            // Invariant: current should not have leading or trailing
+            // whitespaces
             std::string_view current{};
             // bool at_end = false;
 
-            jwt_string_it_state(const group_range::jwt_string_state* state,
-                                std::string_view rem);
+            jwt_string_it_state(
+              const group_range::jwt_string_state* state, std::string_view rem);
 
             explicit jwt_string_it_state(
               const group_range::jwt_string_state* state);
 
-            // static void skip_leading(std::string_view& str, std::string_view skip_chars) {
+            // static void skip_leading(std::string_view& str, std::string_view
+            // skip_chars) {
             //     auto first = str.find_first_not_of(skip_chars);
             //     if (first == std::string_view::npos) {
             //         // Here, str is either all commas or empty
             //         str = {};
             //     } else {
-            //         // first is the index of the first character we want to keep.
-            //         str.remove_prefix(first);
+            //         // first is the index of the first character we want to
+            //         keep. str.remove_prefix(first);
             //     }
             // }
 
-            // static void skip_trailing(std::string_view& str, std::string_view skip_chars) {
+            // static void skip_trailing(std::string_view& str, std::string_view
+            // skip_chars) {
             //     auto last = str.find_last_not_of(skip_chars);
             //     if (last == std::string_view::npos) {
             //         // Here, str is either all commas or empty
             //         str = {};
             //     } else {
-            //         // last is the index of the last character we want to keep.
-            //         str.remove_suffix(str.size() - last - 1);
+            //         // last is the index of the last character we want to
+            //         keep. str.remove_suffix(str.size() - last - 1);
             //     }
             // }
 
@@ -151,10 +156,11 @@ public:
             std::size_t index = 0;
         };
 
-        using type = std::variant<std::monostate, 
-                                  jwt_list_it_state, 
-                                  jwt_string_it_state, 
-                                  materialized_it_state>;
+        using type = std::variant<
+          std::monostate,
+          jwt_list_it_state,
+          jwt_string_it_state,
+          materialized_it_state>;
 
         type _it_state;
 
@@ -164,20 +170,25 @@ public:
 
         iterator operator++(int) noexcept;
 
-        friend bool operator==(iterator const& a, iterator const& b) noexcept;
+        friend bool operator==(const iterator& a, const iterator& b) noexcept;
 
-        friend bool operator!=(iterator const& a, iterator const& b) noexcept;
+        friend bool operator!=(const iterator& a, const iterator& b) noexcept;
     };
 
     // Delete rvalue overloads to prevent dangerous patterns
-    iterator begin() const && = delete;   // Prevents: group_range(...).begin()
-    iterator end() const && = delete;
+    iterator begin() const&& = delete; // Prevents: group_range(...).begin()
+    iterator end() const&& = delete;
 
-    iterator begin() const & noexcept;
-    iterator end() const & noexcept;
+    iterator begin() const& noexcept;
+    iterator end() const& noexcept;
 
 private:
-    std::variant<std::monostate, jwt_list_state, jwt_string_state, materialized_state> _storage;
+    std::variant<
+      std::monostate,
+      jwt_list_state,
+      jwt_string_state,
+      materialized_state>
+      _storage;
 };
 
 } // namespace security

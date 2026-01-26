@@ -294,7 +294,8 @@ BOOST_DATA_TEST_CASE(test_oidc_verifier, bdata::make(oidc_verify_data), d) {
     BOOST_REQUIRE(!verify.has_error());
 }
 
-// Helper struct for test data initialization that maintains aggregate properties
+// Helper struct for test data initialization that maintains aggregate
+// properties
 struct auth_test_data_init {
     time_t now;
     std::string_view jwks;
@@ -382,8 +383,6 @@ struct auth_test_data {
           r.auth_err);
         return os;
     }
-
-    
 };
 const auto oidc_auth_data = std::to_array<auth_test_data_init>({
   // Auth0 example
@@ -507,17 +506,25 @@ auto make_oidc_auth_test_data() {
     std::vector<auth_test_data> result;
     result.reserve(oidc_auth_data.size());
     for (auto& init : oidc_auth_data) {
-        result.emplace_back(auth_test_data_init{
-            init.now, init.jwks, init.jws,
-            init.issuer, init.audience, init.clock_skew_tolerance,
-            init.auth_err, init.principal,
-            init.expected_groups.copy(), init.mapping, init.group_policy
-        });
+        result.emplace_back(
+          auth_test_data_init{
+            init.now,
+            init.jwks,
+            init.jws,
+            init.issuer,
+            init.audience,
+            init.clock_skew_tolerance,
+            init.auth_err,
+            init.principal,
+            init.expected_groups.copy(),
+            init.mapping,
+            init.group_policy});
     }
     return result;
 }
 
-BOOST_DATA_TEST_CASE(test_oidc_authenticate, bdata::make(make_oidc_auth_test_data()), d) {
+BOOST_DATA_TEST_CASE(
+  test_oidc_authenticate, bdata::make(make_oidc_auth_test_data()), d) {
     auto jwks = oidc::jwks::make(ss::sstring{d.jwks});
     BOOST_REQUIRE(!jwks.has_error());
 
