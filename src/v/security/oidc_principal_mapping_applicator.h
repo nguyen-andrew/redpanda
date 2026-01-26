@@ -11,7 +11,6 @@
 
 #include "base/outcome.h"
 #include "security/acl.h"
-#include "security/group_range.h"
 #include "security/jwt.h"
 #include "security/oidc_principal_mapping.h"
 
@@ -19,8 +18,5 @@ namespace security::oidc {
 
 result<acl_principal>
 principal_mapping_rule_apply(const principal_mapping_rule&, const jwt& jwt);
-
-result<group_range>
-group_policy_apply(const group_claim_policy&, ss::lw_shared_ptr<const jwt> jwt);
 
 } // namespace security::oidc
