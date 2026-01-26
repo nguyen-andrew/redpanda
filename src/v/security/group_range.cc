@@ -278,19 +278,19 @@ bool operator!=(
 group_range::iterator group_range::begin() const & noexcept {
     return ss::visit(_storage,
         [](std::monostate const&) -> iterator {
-            std::cout << "*** MONOSTATE" << std::endl;
+            // std::cout << "*** MONOSTATE" << std::endl;
             return {std::monostate{}};
         },
         [](const jwt_list_state& state) -> iterator {
-            std::cout << "*** STRING VEC" << std::endl;
+            // std::cout << "*** STRING VEC" << std::endl;
             return {iterator::jwt_list_it_state{ .jwt_list_state = &state, .index=0 }};
         },
         [](const jwt_string_state& state) -> iterator {
-            std::cout << "*** CSV" << std::endl;
+            // std::cout << "*** CSV" << std::endl;
             return {iterator::jwt_string_it_state{&state}};
         },
         [](const materialized_state& state) -> iterator {
-            std::cout << "*** MATERIALIZED" << std::endl;
+            // std::cout << "*** MATERIALIZED" << std::endl;
             return {iterator::materialized_it_state{ .materialized_state = &state, .index=0 }};
         }
     );
@@ -308,7 +308,7 @@ group_range::iterator group_range::end() const & noexcept {
             return {iterator::jwt_string_it_state{&state, {}}};
         },
         [](const materialized_state& state) -> iterator {
-            std::cout << "*** MATERIALIZED (END), v.size() = " << state.materialized_groups.size() << std::endl;
+            // std::cout << "*** MATERIALIZED (END), v.size() = " << state.materialized_groups.size() << std::endl;
             return {iterator::materialized_it_state{ .materialized_state = &state, .index=state.materialized_groups.size() }};
         }
     );
