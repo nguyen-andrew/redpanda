@@ -51,13 +51,25 @@ namespace security {
 ///   }
 /// \endcode
 class group_range {
+private:
+    struct jwt_list_state {
+        ss::lw_shared_ptr<const oidc::jwt> jwt;
+        oidc::group_claim_policy policy;
+        chunked_vector<std::string_view> list_claim;
+    };
+
+    struct jwt_string_state {
+        ss::lw_shared_ptr<const oidc::jwt> jwt;
+        oidc::group_claim_policy policy;
+        std::string_view string_claim;
+    };
+
+    struct materialized_state {
+        chunked_vector<security::acl_principal> materialized_groups;
+    };
+
 public:
     using value_type = security::acl_principal;
-
-    // Forward declare private types that iterator needs
-    struct jwt_list_state;
-    struct jwt_string_state;
-    struct materialized_state;
 
     // Default constructor creates an empty range with no allocation
     group_range() = default;
@@ -94,31 +106,80 @@ public:
         };
 
         struct jwt_string_it_state {
-            const jwt_string_state* jwt_string_state = nullptr;
+            // const jwt_string_state* jwt_string_state = nullptr;
+            const jwt_string_state& jwt_string_state;
+            // Invariant: remaining should not have leading or trailing commas
             std::string_view remaining;
+            // Invariant: current should not have leading or trailing whitespaces
             std::string_view current{};
             // bool at_end = false;
 
-            void advance() noexcept {
-                if (at_end) {
-                    return;
-                }
+            jwt_string_it_state(const struct jwt_string_state& state,
+                                std::string_view rem)
+              : jwt_string_state(state), remaining(rem) {
+                skip_leading(remaining, ",");
+                skip_trailing(remaining, ",");
+                // Prime the first token into current
+                advance();
+              }
 
-                if (remaining.empty()) {
-                    // Final element after trailing comma (empty string)
-                    current = {};
-                    at_end = true;
-                    return;
-                }
+            explicit jwt_string_it_state(
+              const struct jwt_string_state& state)
+              : jwt_string_it_state(state, state.string_claim) {}
 
-                const auto next_comma = remaining.find(',');
-                if (next_comma == std::string_view::npos) {
-                    current = remaining;
-                    remaining = {};
+            static void skip_leading(std::string_view& str, std::string_view skip_chars) {
+                auto first = str.find_first_not_of(skip_chars);
+                if (first == std::string_view::npos) {
+                    // Here, str is either all commas or empty
+                    str = {};
                 } else {
-                    current = remaining.substr(0, next_comma);
-                    remaining.remove_prefix(next_comma + 1);
+                    // first is the index of the first character we want to keep.
+                    str.remove_prefix(first);
                 }
+            }
+
+            static void skip_trailing(std::string_view& str, std::string_view skip_chars) {
+                auto last = str.find_last_not_of(skip_chars);
+                if (last == std::string_view::npos) {
+                    // Here, str is either all commas or empty
+                    str = {};
+                } else {
+                    // last is the index of the last character we want to keep.
+                    str.remove_suffix(str.size() - last - 1);
+                }
+            }
+
+            void advance() noexcept {
+                current = {};
+
+                while (!remaining.empty()) {
+                    auto next_comma = remaining.find(',');
+                    if (next_comma == std::string_view::npos) {
+                        current = remaining;
+                        remaining = {};
+                    } else {
+                        current = remaining.substr(0, next_comma);
+                        remaining.remove_prefix(next_comma + 1);
+                    }
+
+                    // Invariant: remaining has no leading/trailing commas
+                    skip_leading(remaining, ",");
+
+                    // Invariant: current has no leading/trailing whitespaces
+                    skip_leading(current, " \t\r\n");
+                    skip_trailing(current, " \t\r\n");
+                    // Skip empty/blank fields
+                    if (current.empty()) {
+                        // Loop continues, and remaining is smaller than before
+                        continue;
+                    } else {
+                        return; // Found a valid current token
+                    }
+                }
+            }
+
+            bool at_end() const noexcept {
+                return current.empty() && remaining.empty();
             }
         };
 
@@ -141,13 +202,13 @@ public:
                 [](std::monostate&) noexcept {
                     // UB to increment empty/end iterator - no-op
                 },
-                [](vec_state& s) noexcept {
+                [](jwt_list_it_state& s) noexcept {
                     ++s.index;
                 },
-                [](split_state& s) noexcept {
+                [](jwt_string_it_state& s) noexcept {
                     s.advance();
                 },
-                [](materialized_state& s) noexcept {
+                [](materialized_it_state& s) noexcept {
                     ++s.index;
                 }
             );
@@ -169,22 +230,19 @@ public:
                     return false; // Different variant alternatives can't be equal
                 } else if constexpr (std::is_same_v<T1, std::monostate>) {
                     return true; // All empty iterators are equal
-                } else if constexpr (std::is_same_v<T1, vec_state>) {
-                    return x.v == y.v && x.index == y.index && x._behavior == y._behavior;
-                } else if constexpr (std::is_same_v<T1, split_state>) {
+                } else if constexpr (std::is_same_v<T1, jwt_list_it_state>) {
+                    return x.jwt_list_state == y.jwt_list_state && x.index == y.index;
+                } else if constexpr (std::is_same_v<T1, jwt_string_it_state>) {
                     // If both at end, they're equal
-                    if (x.at_end && y.at_end) {return true;}
-                    if (x.at_end != y.at_end) {return false;}
+                    if (x.at_end() && y.at_end()) {return true;}
+                    if (x.at_end() != y.at_end()) {return false;}
                     
                     // Both not at end - compare remaining position
                     return x.remaining.data() == y.remaining.data()
                         && x.remaining.size() == y.remaining.size() 
-                        && x._behavior == y._behavior;
-                } else if constexpr (std::is_same_v<T1, materialized_state>) {
-                    auto eq =( x.v == y.v && x.index == y.index);
-                    std::cout << (eq ? "EQUAL" : "NOT EQUAL") << std::endl;
-                    std::cout << "x.index: " << x.index << ", y.index: " << y.index << std::endl;
-                    return eq;
+                        && x.jwt_string_state.policy.nested_behavior() == y.jwt_string_state.policy.nested_behavior();
+                } else if constexpr (std::is_same_v<T1, materialized_it_state>) {
+                    return x.materialized_state == y.materialized_state && x.index == y.index;
                 }
             }, a._it_state, b._it_state);
         }
@@ -204,22 +262,17 @@ public:
                 std::cout << "*** MONOSTATE" << std::endl;
                 return {std::monostate{}};
             },
-            [this](chunked_vector<ss::sstring> const& v) -> iterator {
+            [](const jwt_list_state& state) -> iterator {
                 std::cout << "*** STRING VEC" << std::endl;
-                // return { ._it_state=iterator::vec_state{ .v=&v, .index=0 }, .behavior=_behavior };
-                return {iterator::vec_state{ ._behavior=_behavior, .v=&v, .index=0 }};
+                return {iterator::jwt_list_it_state{ .jwt_list_state = &state, .index=0 }};
             },
-            [this](ss::sstring const& s) -> iterator {
+            [](const jwt_string_state& state) -> iterator {
                 std::cout << "*** CSV" << std::endl;
-                iterator::split_state ss{ ._behavior=_behavior, .remaining = s, .current = {}, .at_end = false };
-                // Prime the first token into ss.current
-                ss.advance();
-                // return { ._it_state=ss, .behavior=_behavior };
-                return {ss};
+                return {iterator::jwt_string_it_state{state}};
             },
-            [](chunked_vector<security::acl_principal> const& v) -> iterator {
+            [](const materialized_state& state) -> iterator {
                 std::cout << "*** MATERIALIZED" << std::endl;
-                return {iterator::materialized_state{ .v=&v, .index=0 }};
+                return {iterator::materialized_it_state{ .materialized_state = &state, .index=0 }};
             }
         );
     }
@@ -229,36 +282,20 @@ public:
             [](std::monostate const&) -> iterator {
                 return {std::monostate{}};
             },
-            [this](chunked_vector<ss::sstring> const& v) -> iterator {
-                return {iterator::vec_state{ ._behavior=_behavior, .v=&v, .index=v.size() }};
+            [](const jwt_list_state& state) -> iterator {
+                return {iterator::jwt_list_it_state{ .jwt_list_state = &state, .index= state.list_claim.size() }};
             },
-            [this](ss::sstring const&) -> iterator {
-                return {iterator::split_state{._behavior=_behavior, .remaining = {}, .current = {}, .at_end = true}};
+            [](const jwt_string_state& state) -> iterator {
+                return {iterator::jwt_string_it_state{state, {}}};
             },
-            [](chunked_vector<security::acl_principal> const& v) -> iterator {
-                std::cout << "*** MATERIALIZED (END), v.size() = " << v.size() << std::endl;
-                return {iterator::materialized_state{ .v=&v, .index=v.size() }};
+            [](const materialized_state& state) -> iterator {
+                std::cout << "*** MATERIALIZED (END), v.size() = " << state.materialized_groups.size() << std::endl;
+                return {iterator::materialized_it_state{ .materialized_state = &state, .index=state.materialized_groups.size() }};
             }
         );
     }
 
 private:
-    struct jwt_list_state {
-        ss::lw_shared_ptr<const oidc::jwt> jwt;
-        oidc::group_claim_policy policy;
-        chunked_vector<std::string_view> list_claim;
-    };
-
-    struct jwt_string_state {
-        ss::lw_shared_ptr<const oidc::jwt> jwt;
-        oidc::group_claim_policy policy;
-        std::string_view string_claim;
-    };
-
-    struct materialized_state {
-        chunked_vector<security::acl_principal> materialized_groups;
-    };
-
     std::variant<std::monostate, jwt_list_state, jwt_string_state, materialized_state> _storage;
 };
 
