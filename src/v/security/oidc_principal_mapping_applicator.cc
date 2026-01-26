@@ -37,31 +37,32 @@ result<acl_principal> principal_mapping_rule_apply(
 
 result<group_range>
 group_policy_apply(const group_claim_policy& policy, ss::lw_shared_ptr<const jwt> jwt) {
-    const auto& p = policy.group_pointer();
-    auto list_claim_sv = jwt->claim<chunked_vector<std::string_view>>(p);
-    if (list_claim_sv) {
-        vlog(
-          seclog.trace,
-          "Group claim found as string list: {}",
-          list_claim_sv.value());
-        chunked_vector<ss::sstring> list_claim;
-        list_claim.reserve(list_claim_sv.value().size());
-        std::ranges::transform(
-            list_claim_sv.value(),
-            std::back_inserter(list_claim),
-            [](std::string_view sv) { return ss::sstring{sv}; }
-        );
-        return group_range(std::move(list_claim), policy.nested_behavior());
-    }
+    return group_range{jwt, policy};
+    // const auto& p = policy.group_pointer();
+    // auto list_claim_sv = jwt->claim<chunked_vector<std::string_view>>(p);
+    // if (list_claim_sv) {
+    //     vlog(
+    //       seclog.trace,
+    //       "Group claim found as string list: {}",
+    //       list_claim_sv.value());
+    //     chunked_vector<ss::sstring> list_claim;
+    //     list_claim.reserve(list_claim_sv.value().size());
+    //     std::ranges::transform(
+    //         list_claim_sv.value(),
+    //         std::back_inserter(list_claim),
+    //         [](std::string_view sv) { return ss::sstring{sv}; }
+    //     );
+    //     return group_range(std::move(list_claim), policy);
+    // }
 
-    auto string_claim = jwt->claim<std::string_view>(p);
-    if (!string_claim) {
-        return group_range{};
-    }
+    // auto string_claim = jwt->claim<std::string_view>(p);
+    // if (!string_claim) {
+    //     return group_range{};
+    // }
 
-    vlog(seclog.trace, "Group claim found as string: {}", string_claim.value());
-    return group_range(
-      ss::sstring{string_claim.value()}, policy.nested_behavior());
+    // vlog(seclog.trace, "Group claim found as string: {}", string_claim.value());
+    // return group_range(
+    //   ss::sstring{string_claim.value()}, policy.nested_behavior());
 }
 
 } // namespace security::oidc
