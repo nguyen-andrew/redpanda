@@ -133,7 +133,7 @@ bool group_range::empty() const noexcept {
 }
 
 group_range::iterator::jwt_string_it_state::jwt_string_it_state(
-    const struct jwt_string_state& state,
+    const group_range::jwt_string_state* state,
     std::string_view rem)
 : jwt_string_state(state), remaining(rem) {
     skip_leading(remaining, ",");
@@ -143,8 +143,8 @@ group_range::iterator::jwt_string_it_state::jwt_string_it_state(
 }
 
 group_range::iterator::jwt_string_it_state::jwt_string_it_state(
-    const struct jwt_string_state& state)
-: jwt_string_it_state(state, state.string_claim) {}
+    const group_range::jwt_string_state* state)
+: jwt_string_it_state(state, state->string_claim) {}
 
 void group_range::iterator::jwt_string_it_state::advance() noexcept {
     current = {};
@@ -196,7 +196,7 @@ group_range::iterator::operator*() const noexcept {
         [](const jwt_string_it_state& it_state) -> security::acl_principal {
             // In split mode, current is always the token for this position.
             // (If we're at end, deref is undefined like normal iterators.)
-            const auto& string_state = it_state.jwt_string_state;
+            const auto& string_state = *it_state.jwt_string_state;
 
             return apply_nested_group_policy(it_state.current, string_state.policy.nested_behavior());
         },
@@ -258,8 +258,8 @@ bool operator==(
               // Both not at end - compare remaining position
               return x.remaining.data() == y.remaining.data()
                      && x.remaining.size() == y.remaining.size()
-                     && x.jwt_string_state.policy.nested_behavior()
-                          == y.jwt_string_state.policy.nested_behavior();
+                     && x.jwt_string_state->policy.nested_behavior()
+                          == y.jwt_string_state->policy.nested_behavior();
           } else if constexpr (
             std::is_same_v<T1, group_range::iterator::materialized_it_state>) {
               return x.materialized_state == y.materialized_state
@@ -287,7 +287,7 @@ group_range::iterator group_range::begin() const & noexcept {
         },
         [](const jwt_string_state& state) -> iterator {
             std::cout << "*** CSV" << std::endl;
-            return {iterator::jwt_string_it_state{state}};
+            return {iterator::jwt_string_it_state{&state}};
         },
         [](const materialized_state& state) -> iterator {
             std::cout << "*** MATERIALIZED" << std::endl;
@@ -305,7 +305,7 @@ group_range::iterator group_range::end() const & noexcept {
             return {iterator::jwt_list_it_state{ .jwt_list_state = &state, .index= state.list_claim.size() }};
         },
         [](const jwt_string_state& state) -> iterator {
-            return {iterator::jwt_string_it_state{state, {}}};
+            return {iterator::jwt_string_it_state{&state, {}}};
         },
         [](const materialized_state& state) -> iterator {
             std::cout << "*** MATERIALIZED (END), v.size() = " << state.materialized_groups.size() << std::endl;

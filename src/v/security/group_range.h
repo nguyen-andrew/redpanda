@@ -106,19 +106,18 @@ public:
         };
 
         struct jwt_string_it_state {
-            // const jwt_string_state* jwt_string_state = nullptr;
-            const jwt_string_state& jwt_string_state;
+            const jwt_string_state* jwt_string_state = nullptr;
             // Invariant: remaining should not have leading or trailing commas
             std::string_view remaining;
             // Invariant: current should not have leading or trailing whitespaces
             std::string_view current{};
             // bool at_end = false;
 
-            jwt_string_it_state(const struct jwt_string_state& state,
+            jwt_string_it_state(const group_range::jwt_string_state* state,
                                 std::string_view rem);
 
             explicit jwt_string_it_state(
-              const struct jwt_string_state& state);
+              const group_range::jwt_string_state* state);
 
             // static void skip_leading(std::string_view& str, std::string_view skip_chars) {
             //     auto first = str.find_first_not_of(skip_chars);
