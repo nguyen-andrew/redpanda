@@ -115,72 +115,36 @@ public:
             // bool at_end = false;
 
             jwt_string_it_state(const struct jwt_string_state& state,
-                                std::string_view rem)
-              : jwt_string_state(state), remaining(rem) {
-                skip_leading(remaining, ",");
-                skip_trailing(remaining, ",");
-                // Prime the first token into current
-                advance();
-              }
+                                std::string_view rem);
 
             explicit jwt_string_it_state(
-              const struct jwt_string_state& state)
-              : jwt_string_it_state(state, state.string_claim) {}
+              const struct jwt_string_state& state);
 
-            static void skip_leading(std::string_view& str, std::string_view skip_chars) {
-                auto first = str.find_first_not_of(skip_chars);
-                if (first == std::string_view::npos) {
-                    // Here, str is either all commas or empty
-                    str = {};
-                } else {
-                    // first is the index of the first character we want to keep.
-                    str.remove_prefix(first);
-                }
-            }
+            // static void skip_leading(std::string_view& str, std::string_view skip_chars) {
+            //     auto first = str.find_first_not_of(skip_chars);
+            //     if (first == std::string_view::npos) {
+            //         // Here, str is either all commas or empty
+            //         str = {};
+            //     } else {
+            //         // first is the index of the first character we want to keep.
+            //         str.remove_prefix(first);
+            //     }
+            // }
 
-            static void skip_trailing(std::string_view& str, std::string_view skip_chars) {
-                auto last = str.find_last_not_of(skip_chars);
-                if (last == std::string_view::npos) {
-                    // Here, str is either all commas or empty
-                    str = {};
-                } else {
-                    // last is the index of the last character we want to keep.
-                    str.remove_suffix(str.size() - last - 1);
-                }
-            }
+            // static void skip_trailing(std::string_view& str, std::string_view skip_chars) {
+            //     auto last = str.find_last_not_of(skip_chars);
+            //     if (last == std::string_view::npos) {
+            //         // Here, str is either all commas or empty
+            //         str = {};
+            //     } else {
+            //         // last is the index of the last character we want to keep.
+            //         str.remove_suffix(str.size() - last - 1);
+            //     }
+            // }
 
-            void advance() noexcept {
-                current = {};
+            void advance() noexcept;
 
-                while (!remaining.empty()) {
-                    auto next_comma = remaining.find(',');
-                    if (next_comma == std::string_view::npos) {
-                        current = remaining;
-                        remaining = {};
-                    } else {
-                        current = remaining.substr(0, next_comma);
-                        remaining.remove_prefix(next_comma + 1);
-                    }
-
-                    // Invariant: remaining has no leading/trailing commas
-                    skip_leading(remaining, ",");
-
-                    // Invariant: current has no leading/trailing whitespaces
-                    skip_leading(current, " \t\r\n");
-                    skip_trailing(current, " \t\r\n");
-                    // Skip empty/blank fields
-                    if (current.empty()) {
-                        // Loop continues, and remaining is smaller than before
-                        continue;
-                    } else {
-                        return; // Found a valid current token
-                    }
-                }
-            }
-
-            bool at_end() const noexcept {
-                return current.empty() && remaining.empty();
-            }
+            bool at_end() const noexcept;
         };
 
         struct materialized_it_state {
@@ -197,29 +161,9 @@ public:
 
         reference operator*() const noexcept;
 
-        iterator& operator++() noexcept {
-            ss::visit(_it_state,
-                [](std::monostate&) noexcept {
-                    // UB to increment empty/end iterator - no-op
-                },
-                [](jwt_list_it_state& s) noexcept {
-                    ++s.index;
-                },
-                [](jwt_string_it_state& s) noexcept {
-                    s.advance();
-                },
-                [](materialized_it_state& s) noexcept {
-                    ++s.index;
-                }
-            );
-            return *this;
-        }
+        iterator& operator++() noexcept;
 
-        iterator operator++(int) noexcept {
-            auto tmp = *this;
-            ++(*this);
-            return tmp;
-        }
+        iterator operator++(int) noexcept;
 
         friend bool operator==(iterator const& a, iterator const& b) noexcept {
             return std::visit([&](auto const& x, auto const& y) noexcept {
@@ -256,44 +200,8 @@ public:
     iterator begin() const && = delete;   // Prevents: group_range(...).begin()
     iterator end() const && = delete;
 
-    iterator begin() const & noexcept {
-        return ss::visit(_storage,
-            [](std::monostate const&) -> iterator {
-                std::cout << "*** MONOSTATE" << std::endl;
-                return {std::monostate{}};
-            },
-            [](const jwt_list_state& state) -> iterator {
-                std::cout << "*** STRING VEC" << std::endl;
-                return {iterator::jwt_list_it_state{ .jwt_list_state = &state, .index=0 }};
-            },
-            [](const jwt_string_state& state) -> iterator {
-                std::cout << "*** CSV" << std::endl;
-                return {iterator::jwt_string_it_state{state}};
-            },
-            [](const materialized_state& state) -> iterator {
-                std::cout << "*** MATERIALIZED" << std::endl;
-                return {iterator::materialized_it_state{ .materialized_state = &state, .index=0 }};
-            }
-        );
-    }
-
-    iterator end() const & noexcept {
-        return ss::visit(_storage,
-            [](std::monostate const&) -> iterator {
-                return {std::monostate{}};
-            },
-            [](const jwt_list_state& state) -> iterator {
-                return {iterator::jwt_list_it_state{ .jwt_list_state = &state, .index= state.list_claim.size() }};
-            },
-            [](const jwt_string_state& state) -> iterator {
-                return {iterator::jwt_string_it_state{state, {}}};
-            },
-            [](const materialized_state& state) -> iterator {
-                std::cout << "*** MATERIALIZED (END), v.size() = " << state.materialized_groups.size() << std::endl;
-                return {iterator::materialized_it_state{ .materialized_state = &state, .index=state.materialized_groups.size() }};
-            }
-        );
-    }
+    iterator begin() const & noexcept;
+    iterator end() const & noexcept;
 
 private:
     std::variant<std::monostate, jwt_list_state, jwt_string_state, materialized_state> _storage;
