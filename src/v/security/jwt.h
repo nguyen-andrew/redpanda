@@ -269,11 +269,6 @@ public:
         return jwt(std::move(header), std::move(payload));
     }
 
-    jwt(jwt&&) = default;
-    jwt& operator=(jwt&&) = default;
-    jwt(const jwt&) = delete;
-    jwt& operator=(const jwt&) = delete;
-
     // Retrieve the Claim named claim.
     auto claim(std::string_view claim) const {
         return detail::string_view(_payload, claim);
