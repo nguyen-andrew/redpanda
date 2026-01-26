@@ -231,6 +231,51 @@ group_range::iterator group_range::iterator::operator++(int) noexcept {
     return tmp;
 }
 
+bool operator==(
+  const group_range::iterator& a, const group_range::iterator& b) noexcept {
+    return std::visit(
+      [&](auto const& x, auto const& y) noexcept {
+          using T1 = std::decay_t<decltype(x)>;
+          using T2 = std::decay_t<decltype(y)>;
+
+          if constexpr (!std::is_same_v<T1, T2>) {
+              return false; // Different variant alternatives can't be equal
+          } else if constexpr (std::is_same_v<T1, std::monostate>) {
+              return true; // All empty iterators are equal
+          } else if constexpr (
+            std::is_same_v<T1, group_range::iterator::jwt_list_it_state>) {
+              return x.jwt_list_state == y.jwt_list_state
+                     && x.index == y.index;
+          } else if constexpr (
+            std::is_same_v<T1, group_range::iterator::jwt_string_it_state>) {
+              // If both at end, they're equal
+              if (x.at_end() && y.at_end()) {
+                  return true;
+              }
+              if (x.at_end() != y.at_end()) {
+                  return false;
+              }
+
+              // Both not at end - compare remaining position
+              return x.remaining.data() == y.remaining.data()
+                     && x.remaining.size() == y.remaining.size()
+                     && x.jwt_string_state.policy.nested_behavior()
+                          == y.jwt_string_state.policy.nested_behavior();
+          } else if constexpr (
+            std::is_same_v<T1, group_range::iterator::materialized_it_state>) {
+              return x.materialized_state == y.materialized_state
+                     && x.index == y.index;
+          }
+      },
+      a._it_state,
+      b._it_state);
+}
+
+bool operator!=(
+  const group_range::iterator& a, const group_range::iterator& b) noexcept {
+    return !(a == b);
+}
+
 group_range::iterator group_range::begin() const & noexcept {
     return ss::visit(_storage,
         [](std::monostate const&) -> iterator {

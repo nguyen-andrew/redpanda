@@ -165,35 +165,9 @@ public:
 
         iterator operator++(int) noexcept;
 
-        friend bool operator==(iterator const& a, iterator const& b) noexcept {
-            return std::visit([&](auto const& x, auto const& y) noexcept {
-                using T1 = std::decay_t<decltype(x)>;
-                using T2 = std::decay_t<decltype(y)>;
+        friend bool operator==(iterator const& a, iterator const& b) noexcept;
 
-                if constexpr (!std::is_same_v<T1, T2>) {
-                    return false; // Different variant alternatives can't be equal
-                } else if constexpr (std::is_same_v<T1, std::monostate>) {
-                    return true; // All empty iterators are equal
-                } else if constexpr (std::is_same_v<T1, jwt_list_it_state>) {
-                    return x.jwt_list_state == y.jwt_list_state && x.index == y.index;
-                } else if constexpr (std::is_same_v<T1, jwt_string_it_state>) {
-                    // If both at end, they're equal
-                    if (x.at_end() && y.at_end()) {return true;}
-                    if (x.at_end() != y.at_end()) {return false;}
-                    
-                    // Both not at end - compare remaining position
-                    return x.remaining.data() == y.remaining.data()
-                        && x.remaining.size() == y.remaining.size() 
-                        && x.jwt_string_state.policy.nested_behavior() == y.jwt_string_state.policy.nested_behavior();
-                } else if constexpr (std::is_same_v<T1, materialized_it_state>) {
-                    return x.materialized_state == y.materialized_state && x.index == y.index;
-                }
-            }, a._it_state, b._it_state);
-        }
-
-        friend bool operator!=(iterator const& a, iterator const& b) noexcept {
-            return !(a == b);
-        }
+        friend bool operator!=(iterator const& a, iterator const& b) noexcept;
     };
 
     // Delete rvalue overloads to prevent dangerous patterns
