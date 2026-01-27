@@ -37,7 +37,7 @@ result<authentication_data> authenticate(
   ss::lowres_system_clock::time_point now);
 
 result<authentication_data> authenticate(
-  ss::lw_shared_ptr<const jwt> jwt,
+  jwt jwt,
   const principal_mapping_rule& mapping,
   const group_claim_policy& group_policy,
   std::string_view issuer,

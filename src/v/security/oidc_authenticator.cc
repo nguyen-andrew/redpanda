@@ -32,47 +32,48 @@
 namespace security::oidc {
 
 result<authentication_data> authenticate(
-  ss::lw_shared_ptr<const jwt> jwt_ptr,
+  jwt jwt,
   const principal_mapping_rule& mapping,
   const group_claim_policy& group_policy,
   std::string_view issuer,
   std::string_view audience,
   std::chrono::seconds clock_skew_tolerance,
   ss::lowres_system_clock::time_point now) {
-    if (jwt_ptr->iss() != issuer) {
+    if (jwt.iss() != issuer) {
         return errc::jwt_invalid_iss;
     }
 
-    if (!jwt_ptr->has_aud(audience)) {
+    if (!jwt.has_aud(audience)) {
         return errc::jwt_invalid_aud;
     }
 
     using clock = ss::lowres_system_clock;
     auto skew = clock_skew_tolerance;
 
-    auto exp = jwt_ptr->exp<clock>().value_or(now);
+    auto exp = jwt.exp<clock>().value_or(now);
     if ((exp + skew) < now) {
         return errc::jwt_invalid_exp;
     }
 
-    if ((jwt_ptr->iat<clock>().value_or(now) - skew) > now) {
+    if ((jwt.iat<clock>().value_or(now) - skew) > now) {
         return errc::jwt_invalid_iat;
     }
 
-    if ((jwt_ptr->nbf<clock>().value_or(now) - skew) > now) {
+    if ((jwt.nbf<clock>().value_or(now) - skew) > now) {
         return errc::jwt_invalid_nbf;
     }
 
-    auto principal = principal_mapping_rule_apply(mapping, *jwt_ptr);
+    auto principal = principal_mapping_rule_apply(mapping, jwt);
     if (principal.has_error()) {
         return principal.assume_error();
     }
 
-    auto groups = group_range{jwt_ptr, group_policy};
+    ss::sstring subject{jwt.sub().value_or("")};
+    auto groups = group_range{std::move(jwt), group_policy};
 
     return {
       std::move(principal).assume_value(),
-      ss::sstring{jwt_ptr->sub().value_or("")},
+      std::move(subject),
       exp,
       std::move(groups)};
 }
@@ -92,11 +93,10 @@ result<authentication_data> authenticate(
         return jwt_res.assume_error();
     }
 
-    auto jwt_ptr = ss::make_lw_shared<const jwt>(
-      std::move(jwt_res).assume_value());
-    vlog(seclog.debug, "Claims found in JWT: {}", jwt_ptr->get_claim_names());
+    auto jwt = std::move(jwt_res).assume_value();
+    vlog(seclog.debug, "Claims found in JWT: {}", jwt.get_claim_names());
     auto a_res = authenticate(
-      jwt_ptr,
+      std::move(jwt),
       mapping,
       group_policy,
       issuer,
@@ -106,9 +106,8 @@ result<authentication_data> authenticate(
     if (a_res.has_error()) {
         vlog(
           seclog.warn,
-          "JWT Validation failed with err: {}, JWT: {}",
-          a_res.assume_error().message(),
-          *jwt_ptr);
+          "JWT Validation failed with err: {}",
+          a_res.assume_error().message());
         return a_res.assume_error();
     }
     return std::move(a_res).assume_value();

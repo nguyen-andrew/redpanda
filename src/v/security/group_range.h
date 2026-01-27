@@ -53,13 +53,13 @@ namespace security {
 class group_range {
 private:
     struct jwt_list_state {
-        ss::lw_shared_ptr<const oidc::jwt> jwt;
+        oidc::jwt jwt;
         oidc::group_claim_policy policy;
         chunked_vector<std::string_view> list_claim;
     };
 
     struct jwt_string_state {
-        ss::lw_shared_ptr<const oidc::jwt> jwt;
+        oidc::jwt jwt;
         oidc::group_claim_policy policy;
         std::string_view string_claim;
     };
@@ -75,7 +75,7 @@ public:
     group_range() = default;
 
     group_range(
-      ss::lw_shared_ptr<const oidc::jwt> jwt,
+      oidc::jwt jwt,
       const oidc::group_claim_policy& policy);
 
     explicit group_range(

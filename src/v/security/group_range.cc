@@ -56,22 +56,22 @@ void skip_trailing(std::string_view& str, std::string_view skip_chars) {
 } // namespace
 
 group_range::group_range(
-  ss::lw_shared_ptr<const oidc::jwt> jwt,
+  oidc::jwt jwt,
   const oidc::group_claim_policy& policy) {
     const auto& p = policy.group_pointer();
-    auto list_claim = jwt->claim<chunked_vector<std::string_view>>(p);
+    auto list_claim = jwt.claim<chunked_vector<std::string_view>>(p);
     if (list_claim) {
         _storage = jwt_list_state{
-          .jwt = jwt,
+          .jwt = std::move(jwt),
           .policy = policy,
           .list_claim = std::move(list_claim.value())};
         return;
     }
 
-    auto string_claim = jwt->claim<std::string_view>(p);
+    auto string_claim = jwt.claim<std::string_view>(p);
     if (string_claim) {
         _storage = jwt_string_state{
-          .jwt = jwt, .policy = policy, .string_claim = string_claim.value()};
+          .jwt = std::move(jwt), .policy = policy, .string_claim = string_claim.value()};
         return;
     }
 }
@@ -86,10 +86,10 @@ group_range group_range::copy() const {
       _storage,
       [](const std::monostate&) -> group_range { return group_range{}; },
       [](const jwt_list_state& state) -> group_range {
-          return {state.jwt, state.policy};
+          return {state.jwt.copy(), state.policy};
       },
       [](const jwt_string_state& state) -> group_range {
-          return {state.jwt, state.policy};
+          return {state.jwt.copy(), state.policy};
       },
       [](const materialized_state& state) -> group_range {
           return group_range(state.materialized_groups.copy());

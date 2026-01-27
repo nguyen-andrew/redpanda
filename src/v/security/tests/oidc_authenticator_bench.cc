@@ -115,61 +115,61 @@ json::Document make_jwt_payload(
     return payload;
 }
 
-ss::lw_shared_ptr<const jwt> make_test_jwt(
+jwt make_test_jwt(
   size_t num_groups,
   group_format format = group_format::array,
   nested_group_behavior ngb = nested_group_behavior::none) {
     auto jwt_result = jwt::make(
       make_jwt_header(), make_jwt_payload(num_groups, format, ngb));
     vassert(jwt_result.has_value(), "Failed to create test JWT");
-    return ss::make_lw_shared<const jwt>(std::move(jwt_result).assume_value());
+    return std::move(jwt_result).assume_value();
 }
 
 // JWT with 0 groups
-ss::lw_shared_ptr<const jwt> jwt_0_groups = make_test_jwt(0);
+jwt jwt_0_groups = make_test_jwt(0);
 
 // JWTs with groups as an array, not nested
-ss::lw_shared_ptr<const jwt> jwt_1_group_as_array_not_nested = make_test_jwt(
+jwt jwt_1_group_as_array_not_nested = make_test_jwt(
   1, group_format::array, nested_group_behavior::none);
-ss::lw_shared_ptr<const jwt> jwt_10_groups_as_array_not_nested = make_test_jwt(
+jwt jwt_10_groups_as_array_not_nested = make_test_jwt(
   10, group_format::array, nested_group_behavior::none);
-ss::lw_shared_ptr<const jwt> jwt_100_groups_as_array_not_nested = make_test_jwt(
+jwt jwt_100_groups_as_array_not_nested = make_test_jwt(
   100, group_format::array, nested_group_behavior::none);
-ss::lw_shared_ptr<const jwt> jwt_1000_groups_as_array_not_nested
+jwt jwt_1000_groups_as_array_not_nested
   = make_test_jwt(1000, group_format::array, nested_group_behavior::none);
 
 // JWTs with groups as a comma-delimited string, not nested
-ss::lw_shared_ptr<const jwt> jwt_1_group_as_string_not_nested = make_test_jwt(
+jwt jwt_1_group_as_string_not_nested = make_test_jwt(
   1, group_format::string, nested_group_behavior::none);
-ss::lw_shared_ptr<const jwt> jwt_10_groups_as_string_not_nested = make_test_jwt(
+jwt jwt_10_groups_as_string_not_nested = make_test_jwt(
   10, group_format::string, nested_group_behavior::none);
-ss::lw_shared_ptr<const jwt> jwt_100_groups_as_string_not_nested
+jwt jwt_100_groups_as_string_not_nested
   = make_test_jwt(100, group_format::string, nested_group_behavior::none);
-ss::lw_shared_ptr<const jwt> jwt_1000_groups_as_string_not_nested
+jwt jwt_1000_groups_as_string_not_nested
   = make_test_jwt(1000, group_format::string, nested_group_behavior::none);
 
 // JWTs with groups as an array, nested
-ss::lw_shared_ptr<const jwt> jwt_1_group_as_array_nested = make_test_jwt(
+jwt jwt_1_group_as_array_nested = make_test_jwt(
   1, group_format::array, nested_group_behavior::suffix);
-ss::lw_shared_ptr<const jwt> jwt_10_groups_as_array_nested = make_test_jwt(
+jwt jwt_10_groups_as_array_nested = make_test_jwt(
   10, group_format::array, nested_group_behavior::suffix);
-ss::lw_shared_ptr<const jwt> jwt_100_groups_as_array_nested = make_test_jwt(
+jwt jwt_100_groups_as_array_nested = make_test_jwt(
   100, group_format::array, nested_group_behavior::suffix);
-ss::lw_shared_ptr<const jwt> jwt_1000_groups_as_array_nested = make_test_jwt(
+jwt jwt_1000_groups_as_array_nested = make_test_jwt(
   1000, group_format::array, nested_group_behavior::suffix);
 
 // JWTs with groups as a comma-delimited string, nested
-ss::lw_shared_ptr<const jwt> jwt_1_group_as_string_nested = make_test_jwt(
+jwt jwt_1_group_as_string_nested = make_test_jwt(
   1, group_format::string, nested_group_behavior::suffix);
-ss::lw_shared_ptr<const jwt> jwt_10_groups_as_string_nested = make_test_jwt(
+jwt jwt_10_groups_as_string_nested = make_test_jwt(
   10, group_format::string, nested_group_behavior::suffix);
-ss::lw_shared_ptr<const jwt> jwt_100_groups_as_string_nested = make_test_jwt(
+jwt jwt_100_groups_as_string_nested = make_test_jwt(
   100, group_format::string, nested_group_behavior::suffix);
-ss::lw_shared_ptr<const jwt> jwt_1000_groups_as_string_nested = make_test_jwt(
+jwt jwt_1000_groups_as_string_nested = make_test_jwt(
   1000, group_format::string, nested_group_behavior::suffix);
 
 void run_authenticate(
-  ss::lw_shared_ptr<const jwt> jwt_token,
+  jwt jwt_token,
   const group_claim_policy& group_policy) {
     result<authentication_data> result = authenticate(
       std::move(jwt_token),
@@ -185,75 +185,120 @@ void run_authenticate(
 } // namespace
 
 PERF_TEST(oidc_authenticator_bench, 0_groups) {
-    run_authenticate(jwt_0_groups, test_group_policy_none);
+    auto copy = jwt_0_groups.copy();
+    perf_tests::start_measuring_time();
+    run_authenticate(std::move(copy), test_group_policy_none);
+    perf_tests::stop_measuring_time();
 }
 
 PERF_TEST(oidc_authenticator_bench, 1_group_as_array_not_nested) {
-    run_authenticate(jwt_1_group_as_array_not_nested, test_group_policy_none);
+    auto copy = jwt_1_group_as_array_not_nested.copy();
+    perf_tests::start_measuring_time();
+    run_authenticate(std::move(copy), test_group_policy_none);
+    perf_tests::stop_measuring_time();
 }
 
 PERF_TEST(oidc_authenticator_bench, 10_groups_as_array_not_nested) {
-    run_authenticate(jwt_10_groups_as_array_not_nested, test_group_policy_none);
+    auto copy = jwt_10_groups_as_array_not_nested.copy();
+    perf_tests::start_measuring_time();
+    run_authenticate(std::move(copy), test_group_policy_none);
+    perf_tests::stop_measuring_time();
 }
 
 PERF_TEST(oidc_authenticator_bench, 100_groups_as_array_not_nested) {
-    run_authenticate(
-      jwt_100_groups_as_array_not_nested, test_group_policy_none);
+    auto copy = jwt_100_groups_as_array_not_nested.copy();
+    perf_tests::start_measuring_time();
+    run_authenticate(std::move(copy), test_group_policy_none);
+    perf_tests::stop_measuring_time();
 }
 
 PERF_TEST(oidc_authenticator_bench, 1000_groups_as_array_not_nested) {
-    run_authenticate(
-      jwt_1000_groups_as_array_not_nested, test_group_policy_none);
+    auto copy = jwt_1000_groups_as_array_not_nested.copy();
+    perf_tests::start_measuring_time();
+    run_authenticate(std::move(copy), test_group_policy_none);
+    perf_tests::stop_measuring_time();
 }
 
 PERF_TEST(oidc_authenticator_bench, 1_group_as_string_not_nested) {
-    run_authenticate(jwt_1_group_as_string_not_nested, test_group_policy_none);
+    auto copy = jwt_1_group_as_string_not_nested.copy();
+    perf_tests::start_measuring_time();
+    run_authenticate(std::move(copy), test_group_policy_none);
+    perf_tests::stop_measuring_time();
 }
 
 PERF_TEST(oidc_authenticator_bench, 10_groups_as_string_not_nested) {
-    run_authenticate(
-      jwt_10_groups_as_string_not_nested, test_group_policy_none);
+    auto copy = jwt_10_groups_as_string_not_nested.copy();
+    perf_tests::start_measuring_time();
+    run_authenticate(std::move(copy), test_group_policy_none);
+    perf_tests::stop_measuring_time();
 }
 
 PERF_TEST(oidc_authenticator_bench, 100_groups_as_string_not_nested) {
-    run_authenticate(
-      jwt_100_groups_as_string_not_nested, test_group_policy_none);
+    auto copy = jwt_100_groups_as_string_not_nested.copy();
+    perf_tests::start_measuring_time();
+    run_authenticate(std::move(copy), test_group_policy_none);
+    perf_tests::stop_measuring_time();
 }
 
 PERF_TEST(oidc_authenticator_bench, 1000_groups_as_string_not_nested) {
-    run_authenticate(
-      jwt_1000_groups_as_string_not_nested, test_group_policy_none);
+    auto copy = jwt_1000_groups_as_string_not_nested.copy();
+    perf_tests::start_measuring_time();
+    run_authenticate(std::move(copy), test_group_policy_none);
+    perf_tests::stop_measuring_time();
 }
 
 PERF_TEST(oidc_authenticator_bench, 1_group_as_array_nested) {
-    run_authenticate(jwt_1_group_as_array_nested, test_group_policy_suffix);
+    auto copy = jwt_1_group_as_array_nested.copy();
+    perf_tests::start_measuring_time();
+    run_authenticate(std::move(copy), test_group_policy_suffix);
+    perf_tests::stop_measuring_time();
 }
 
 PERF_TEST(oidc_authenticator_bench, 10_groups_as_array_nested) {
-    run_authenticate(jwt_10_groups_as_array_nested, test_group_policy_suffix);
+    auto copy = jwt_10_groups_as_array_nested.copy();
+    perf_tests::start_measuring_time();
+    run_authenticate(std::move(copy), test_group_policy_suffix);
+    perf_tests::stop_measuring_time();
 }
 
 PERF_TEST(oidc_authenticator_bench, 100_groups_as_array_nested) {
-    run_authenticate(jwt_100_groups_as_array_nested, test_group_policy_suffix);
+    auto copy = jwt_100_groups_as_array_nested.copy();
+    perf_tests::start_measuring_time();
+    run_authenticate(std::move(copy), test_group_policy_suffix);
+    perf_tests::stop_measuring_time();
 }
 
 PERF_TEST(oidc_authenticator_bench, 1000_groups_as_array_nested) {
-    run_authenticate(jwt_1000_groups_as_array_nested, test_group_policy_suffix);
+    auto copy = jwt_1000_groups_as_array_nested.copy();
+    perf_tests::start_measuring_time();
+    run_authenticate(std::move(copy), test_group_policy_suffix);
+    perf_tests::stop_measuring_time();
 }
 
 PERF_TEST(oidc_authenticator_bench, 1_group_as_string_nested) {
-    run_authenticate(jwt_1_group_as_string_nested, test_group_policy_suffix);
+    auto copy = jwt_1_group_as_string_nested.copy();
+    perf_tests::start_measuring_time();
+    run_authenticate(std::move(copy), test_group_policy_suffix);
+    perf_tests::stop_measuring_time();
 }
 
 PERF_TEST(oidc_authenticator_bench, 10_groups_as_string_nested) {
-    run_authenticate(jwt_10_groups_as_string_nested, test_group_policy_suffix);
+    auto copy = jwt_10_groups_as_string_nested.copy();
+    perf_tests::start_measuring_time();
+    run_authenticate(std::move(copy), test_group_policy_suffix);
+    perf_tests::stop_measuring_time();
 }
 
 PERF_TEST(oidc_authenticator_bench, 100_groups_as_string_nested) {
-    run_authenticate(jwt_100_groups_as_string_nested, test_group_policy_suffix);
+    auto copy = jwt_100_groups_as_string_nested.copy();
+    perf_tests::start_measuring_time();
+    run_authenticate(std::move(copy), test_group_policy_suffix);
+    perf_tests::stop_measuring_time();
 }
 
 PERF_TEST(oidc_authenticator_bench, 1000_groups_as_string_nested) {
-    run_authenticate(
-      jwt_1000_groups_as_string_nested, test_group_policy_suffix);
+    auto copy = jwt_1000_groups_as_string_nested.copy();
+    perf_tests::start_measuring_time();
+    run_authenticate(std::move(copy), test_group_policy_suffix);
+    perf_tests::stop_measuring_time();
 }

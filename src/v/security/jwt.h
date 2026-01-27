@@ -358,6 +358,17 @@ public:
         });
     }
 
+    // Create a deep copy of this JWT
+    jwt copy() const {
+        json::Document header_copy;
+        header_copy.CopyFrom(_header, header_copy.GetAllocator());
+        
+        json::Document payload_copy;
+        payload_copy.CopyFrom(_payload, payload_copy.GetAllocator());
+        
+        return {std::move(header_copy), std::move(payload_copy)};
+    }
+
 private:
     friend std::ostream& operator<<(std::ostream& os, const jwt& jwt) {
         const auto write = [](std::ostream& os, const auto& doc) {
