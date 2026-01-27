@@ -45,7 +45,7 @@ namespace security {
 ///
 /// Example usage:
 /// \code
-///   auto groups = group_range("admin,users,readers", behavior);
+///   auto groups = group_range(jwt, group_claim_policy);
 ///   for (const auto& g : groups) {  // Only materializes on iteration
 ///       if (check_acl(g)) break;    // Can short-circuit early
 ///   }
@@ -114,37 +114,12 @@ public:
             // Invariant: current should not have leading or trailing
             // whitespaces
             std::string_view current{};
-            // bool at_end = false;
 
             jwt_string_it_state(
               const group_range::jwt_string_state* state, std::string_view rem);
 
             explicit jwt_string_it_state(
               const group_range::jwt_string_state* state);
-
-            // static void skip_leading(std::string_view& str, std::string_view
-            // skip_chars) {
-            //     auto first = str.find_first_not_of(skip_chars);
-            //     if (first == std::string_view::npos) {
-            //         // Here, str is either all commas or empty
-            //         str = {};
-            //     } else {
-            //         // first is the index of the first character we want to
-            //         keep. str.remove_prefix(first);
-            //     }
-            // }
-
-            // static void skip_trailing(std::string_view& str, std::string_view
-            // skip_chars) {
-            //     auto last = str.find_last_not_of(skip_chars);
-            //     if (last == std::string_view::npos) {
-            //         // Here, str is either all commas or empty
-            //         str = {};
-            //     } else {
-            //         // last is the index of the last character we want to
-            //         keep. str.remove_suffix(str.size() - last - 1);
-            //     }
-            // }
 
             void advance() noexcept;
 
@@ -165,13 +140,9 @@ public:
         type _it_state;
 
         reference operator*() const noexcept;
-
         iterator& operator++() noexcept;
-
         iterator operator++(int) noexcept;
-
         friend bool operator==(const iterator& a, const iterator& b) noexcept;
-
         friend bool operator!=(const iterator& a, const iterator& b) noexcept;
     };
 

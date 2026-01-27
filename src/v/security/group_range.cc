@@ -11,21 +11,7 @@
 
 #include "security/group_range.h"
 
-// #include "container/chunked_vector.h"
-// #include "security/acl.h"
-// #include "security/config.h"
-// #include "security/jwt.h"
-// #include "security/oidc_principal_mapping.h"
-
-// #include <seastar/core/sstring.hh>
-// #include <seastar/util/variant_utils.hh>
-
-// #include <fmt/format.h>
-
-// #include <iterator>
-// #include <optional>
-// #include <string_view>
-// #include <variant>
+#include "base/vassert.h"
 
 namespace security {
 
@@ -179,7 +165,8 @@ group_range::iterator::operator*() const noexcept {
       _it_state,
       [](const std::monostate&) -> security::acl_principal {
           // UB to dereference empty/end iterator
-          __builtin_unreachable();
+          vassert(false, "Dereferencing empyt/end group_range iterator");
+          return {};
       },
       [](const jwt_list_it_state& it_state) -> security::acl_principal {
           const auto& list_state = *it_state.jwt_list_state;
@@ -270,21 +257,15 @@ bool operator!=(
 group_range::iterator group_range::begin() const& noexcept {
     return ss::visit(
       _storage,
-      [](const std::monostate&) -> iterator {
-          // std::cout << "*** MONOSTATE" << std::endl;
-          return {std::monostate{}};
-      },
+      [](const std::monostate&) -> iterator { return {std::monostate{}}; },
       [](const jwt_list_state& state) -> iterator {
-          // std::cout << "*** STRING VEC" << std::endl;
           return {
             iterator::jwt_list_it_state{.jwt_list_state = &state, .index = 0}};
       },
       [](const jwt_string_state& state) -> iterator {
-          // std::cout << "*** CSV" << std::endl;
           return {iterator::jwt_string_it_state{&state}};
       },
       [](const materialized_state& state) -> iterator {
-          // std::cout << "*** MATERIALIZED" << std::endl;
           return {iterator::materialized_it_state{
             .materialized_state = &state, .index = 0}};
       });
@@ -302,8 +283,6 @@ group_range::iterator group_range::end() const& noexcept {
           return {iterator::jwt_string_it_state{&state, {}}};
       },
       [](const materialized_state& state) -> iterator {
-          // std::cout << "*** MATERIALIZED (END), v.size() = " <<
-          // state.materialized_groups.size() << std::endl;
           return {iterator::materialized_it_state{
             .materialized_state = &state,
             .index = state.materialized_groups.size()}};
