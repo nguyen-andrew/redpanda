@@ -742,11 +742,22 @@ ss::future<ctx_server<service>::reply_t> get_schemas_ids_id_subjects(
     // List-type request: must ensure we see latest writes
     co_await rq.service().writer().read_sync();
 
-    // Force early 40403 if the schema id isn't found
-    co_await rq.service().schema_store().get_schema_definition(id);
+    // Parse optional subject query parameter to extract context
+    auto subject_param = parse::query_param<std::optional<ss::sstring>>(
+                           *rq.req, "subject")
+                           .value_or("");
 
-    auto ctx_subjects
-      = co_await rq.service().schema_store().get_schema_subjects(id, incl_del);
+    auto ctx_sub = context_subject::from_string(subject_param);
+
+    auto result = co_await resolve_schema_id(
+      rq.service().schema_store(), id, ctx_sub);
+
+    if (!result.found()) {
+        throw as_exception(not_found(id));
+    }
+
+    auto ctx_subjects = co_await rq.service().schema_store().get_schema_subjects(
+      result.ctx_id, incl_del);
 
     // Convert context_subject to qualified string format for JSON response
     auto subjects_str = std::move(ctx_subjects) | std::views::as_rvalue
