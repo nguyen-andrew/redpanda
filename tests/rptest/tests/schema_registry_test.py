@@ -1035,11 +1035,17 @@ class SchemaRegistryRedpandaClient:
         )
 
     def get_schemas_ids_id_subjects(
-        self, id, deleted=False, headers=HTTP_GET_HEADERS, **kwargs
+        self, id, deleted=False, subject=None, headers=HTTP_GET_HEADERS, **kwargs
     ):
+        query_params = []
+        if deleted:
+            query_params.append("deleted=true")
+        if subject is not None:
+            query_params.append(f"subject={subject}")
+        query_string = f"?{'&'.join(query_params)}" if query_params else ""
         return self.request(
             "GET",
-            f"schemas/ids/{id}/subjects{'?deleted=true' if deleted else ''}",
+            f"schemas/ids/{id}/subjects{query_string}",
             headers=headers,
             **kwargs,
         )
@@ -5808,6 +5814,52 @@ class SchemaRegistryContextTest(SchemaRegistryEndpoints):
 
         # Error case - schema ID not found in specified context
         result = self.sr_client.get_schemas_ids_id_versions(
+            id=ctx1_schema1_id, subject=":.nonexistent:"
+        )
+        self.assert_equal(result.status_code, requests.codes.not_found)
+
+    @cluster(num_nodes=1)
+    def test_get_schema_subjects_with_subject(self):
+        """Test GET /schemas/ids/{id}/subjects with subject query parameter for context lookup.
+
+        Extended search (resolve_schema_id_extended) is already covered by
+        test_get_schema_versions_with_subject; here we only verify the param
+        is wired up and the response format is correct.
+        """
+
+        # Register schema1 in default context under sub1 and sub2
+        result = self.sr_client.post_subjects_subject_versions(
+            subject="sub1", data=json.dumps({"schema": schema1_def})
+        )
+        self.assert_equal(result.status_code, requests.codes.ok)
+        default_schema1_id = result.json()["id"]
+
+        result = self.sr_client.post_subjects_subject_versions(
+            subject="sub2", data=json.dumps({"schema": schema1_def})
+        )
+        self.assert_equal(result.status_code, requests.codes.ok)
+
+        # Register schema1 in ctx1 context
+        result = self.sr_client.post_subjects_subject_versions(
+            subject=":.ctx1:sub1", data=json.dumps({"schema": schema1_def})
+        )
+        self.assert_equal(result.status_code, requests.codes.ok)
+        ctx1_schema1_id = result.json()["id"]
+
+        # Without subject param - returns subjects from default context
+        result = self.sr_client.get_schemas_ids_id_subjects(id=default_schema1_id)
+        self.assert_equal(result.status_code, requests.codes.ok)
+        self.assert_equal(set(result.json()), {"sub1", "sub2"})
+
+        # With context-only param ":.ctx1:" - returns subjects from ctx1
+        result = self.sr_client.get_schemas_ids_id_subjects(
+            id=ctx1_schema1_id, subject=":.ctx1:"
+        )
+        self.assert_equal(result.status_code, requests.codes.ok)
+        self.assert_equal(result.json(), [":.ctx1:sub1"])
+
+        # Error case - schema ID not found in specified context
+        result = self.sr_client.get_schemas_ids_id_subjects(
             id=ctx1_schema1_id, subject=":.nonexistent:"
         )
         self.assert_equal(result.status_code, requests.codes.not_found)
