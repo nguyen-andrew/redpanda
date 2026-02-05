@@ -707,11 +707,22 @@ get_schemas_ids_id_versions(server::request_t rq, server::reply_t rp) {
     // List-type request: must ensure we see latest writes
     co_await rq.service().writer().read_sync();
 
-    // Force early 40403 if the schema id isn't found
-    co_await rq.service().schema_store().get_schema_definition(id);
+    // Parse optional subject query parameter to extract context
+    auto subject_param = parse::query_param<std::optional<ss::sstring>>(
+                           *rq.req, "subject")
+                           .value_or("");
+
+    auto ctx_sub = context_subject::from_string(subject_param);
+
+    auto result = co_await resolve_schema_id(
+      rq.service().schema_store(), id, ctx_sub);
+
+    if (!result.found()) {
+        throw as_exception(not_found(id));
+    }
 
     auto svs = co_await rq.service().schema_store().get_schema_subject_versions(
-      id);
+      result.ctx_id);
 
     auto resp = ppj::rjson_serialize_iobuf(
       get_schemas_ids_id_versions_response{.subject_versions{std::move(svs)}});
