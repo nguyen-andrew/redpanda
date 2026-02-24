@@ -632,22 +632,20 @@ BOOST_AUTO_TEST_CASE(test_store_global_compat) {
     // times
 
     pps::seq_marker dummy_marker;
-    auto fallback = pps::default_to_global::yes;
     pps::compatibility_level expected{pps::compatibility_level::backward};
     pps::store s;
     BOOST_REQUIRE(
-      s.get_compatibility({pps::default_context, {}}, fallback).value() == expected);
+      s.get_compatibility({pps::default_context, {}}).value() == expected);
     // duplicate should return false
     BOOST_REQUIRE(s.clear_compatibility(pps::default_context).value() == false);
     BOOST_REQUIRE(
-      s.get_compatibility({pps::default_context, {}}, fallback).value() == expected);
-
+      s.get_compatibility({pps::default_context, {}}).value() == expected);
     expected = pps::compatibility_level::full_transitive;
     BOOST_REQUIRE(
       s.set_compatibility(dummy_marker, pps::default_context, expected).value()
       == true);
     BOOST_REQUIRE(
-      s.get_compatibility({pps::default_context, {}}, fallback).value() == expected);
+      s.get_compatibility({pps::default_context, {}}).value() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(test_store_subject_compat) {
@@ -655,13 +653,12 @@ BOOST_AUTO_TEST_CASE(test_store_subject_compat) {
     // times
 
     pps::seq_marker dummy_marker;
-    auto fallback = pps::default_to_global::yes;
 
     pps::compatibility_level global_expected{
       pps::compatibility_level::backward};
     pps::store s;
     BOOST_REQUIRE(
-      s.get_compatibility({pps::default_context, {}}, fallback).value() == global_expected);
+      s.get_compatibility({pps::default_context, {}}).value() == global_expected);
     s.insert({subject0, string_def0.share()});
 
     auto sub_expected = pps::compatibility_level::backward;
@@ -669,7 +666,7 @@ BOOST_AUTO_TEST_CASE(test_store_subject_compat) {
       s.set_compatibility(dummy_marker, subject0, sub_expected).value()
       == true);
     BOOST_REQUIRE(
-      s.get_compatibility(subject0, fallback).value() == sub_expected);
+      s.get_compatibility(subject0).value() == sub_expected);
 
     // duplicate should return false
     sub_expected = pps::compatibility_level::backward;
@@ -677,52 +674,49 @@ BOOST_AUTO_TEST_CASE(test_store_subject_compat) {
       s.set_compatibility(dummy_marker, subject0, sub_expected).value()
       == false);
     BOOST_REQUIRE(
-      s.get_compatibility(subject0, fallback).value() == sub_expected);
+      s.get_compatibility(subject0).value() == sub_expected);
 
     sub_expected = pps::compatibility_level::full_transitive;
     BOOST_REQUIRE(
       s.set_compatibility(dummy_marker, subject0, sub_expected).value()
       == true);
     BOOST_REQUIRE(
-      s.get_compatibility(subject0, fallback).value() == sub_expected);
+      s.get_compatibility(subject0).value() == sub_expected);
     BOOST_REQUIRE(
-      s.get_compatibility({pps::default_context, {}}, fallback).value() == global_expected);
-
+      s.get_compatibility({pps::default_context, {}}).value() == global_expected);
     // Clearing compatibility should fallback to global
     BOOST_REQUIRE(
       s.clear_compatibility(dummy_marker, subject0).value() == true);
     BOOST_REQUIRE(
-      s.get_compatibility(subject0, fallback).value() == global_expected);
+      s.get_compatibility(subject0).value() == global_expected);
 }
 
 BOOST_AUTO_TEST_CASE(test_store_subject_compat_fallback) {
     // A Subject should fallback to the current global setting
     pps::seq_marker dummy_marker;
-    auto fallback = pps::default_to_global::yes;
 
     pps::compatibility_level expected{pps::compatibility_level::backward};
     pps::store s;
     s.insert({subject0, string_def0.share()});
-    BOOST_REQUIRE(s.get_compatibility(subject0, fallback).value() == expected);
+    BOOST_REQUIRE(s.get_compatibility(subject0).value() == expected);
 
     expected = pps::compatibility_level::forward;
     BOOST_REQUIRE(
       s.set_compatibility(dummy_marker, pps::default_context, expected).value()
       == true);
-    BOOST_REQUIRE(s.get_compatibility(subject0, fallback).value() == expected);
+    BOOST_REQUIRE(s.get_compatibility(subject0).value() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(test_store_invalid_subject_compat) {
     // Setting and getting a compatibility for a non-existant subject should
     // fail
-    auto fallback = pps::default_to_global::yes;
 
     pps::seq_marker dummy_marker;
     pps::compatibility_level expected{pps::compatibility_level::backward};
     pps::store s;
 
     BOOST_REQUIRE_EQUAL(
-      s.get_compatibility(subject0, fallback).error().code(),
+      s.get_compatibility(subject0).error().code(),
       pps::error_code::compatibility_not_found);
 
     expected = pps::compatibility_level::backward;
@@ -1106,15 +1100,14 @@ BOOST_AUTO_TEST_CASE(test_store_context_config) {
     // Test setting and getting compatibility (config) at the context level
     auto test_ctx = pps::context{".test"};
     pps::seq_marker dummy_marker;
-    auto fallback = pps::default_to_global::yes;
     auto s = pps::store{pps::is_mutable::yes};
 
     // Default config is backward compatibility
     BOOST_REQUIRE(
-      s.get_compatibility({pps::default_context, {}}, fallback).value()
+      s.get_compatibility({pps::default_context, {}}).value()
       == pps::compatibility_level::backward);
     BOOST_REQUIRE(
-      s.get_compatibility({test_ctx, {}}, fallback).value()
+      s.get_compatibility({test_ctx, {}}).value()
       == pps::compatibility_level::backward);
 
     // Set config on default context
@@ -1123,10 +1116,10 @@ BOOST_AUTO_TEST_CASE(test_store_context_config) {
          dummy_marker, pps::default_context, pps::compatibility_level::full)
         .value());
     BOOST_REQUIRE(
-      s.get_compatibility({pps::default_context, {}}, fallback).value()
+      s.get_compatibility({pps::default_context, {}}).value()
       == pps::compatibility_level::full);
     BOOST_REQUIRE(
-      s.get_compatibility({test_ctx, {}}, fallback).value()
+      s.get_compatibility({test_ctx, {}}).value()
       == pps::compatibility_level::backward);
 
     // Set different config on test context
@@ -1134,15 +1127,15 @@ BOOST_AUTO_TEST_CASE(test_store_context_config) {
                      dummy_marker, test_ctx, pps::compatibility_level::none)
                     .value());
     BOOST_REQUIRE(
-      s.get_compatibility({pps::default_context, {}}, fallback).value()
+      s.get_compatibility({pps::default_context, {}}).value()
       == pps::compatibility_level::full);
     BOOST_REQUIRE(
-      s.get_compatibility({test_ctx, {}}, fallback).value() == pps::compatibility_level::none);
+      s.get_compatibility({test_ctx, {}}).value() == pps::compatibility_level::none);
 
     // Clear config returns to default
     BOOST_REQUIRE(s.clear_compatibility(test_ctx).value());
     BOOST_REQUIRE(
-      s.get_compatibility({test_ctx, {}}, fallback).value()
+      s.get_compatibility({test_ctx, {}}).value()
       == pps::compatibility_level::backward);
 }
 

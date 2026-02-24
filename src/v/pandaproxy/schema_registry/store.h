@@ -673,70 +673,33 @@ public:
         return it->second._mode_written_at.copy();
     }
 
-    // ///\brief Get the compatibility level of a context, or fallback to global.
-    // result<compatibility_level> get_compatibility(const context& ctx, default_to_global fallback) const {
-    //     auto it = _context_stores.find(ctx);
-    //     if (it != _context_stores.end() && it->second._compatibility.has_value()) {
-    //         return it->second._compatibility.value();
-    //     }
-    //     if (!fallback) {
-
-    //     }
-    //     if (fallback) {
-    //         it = _context_stores.find(global_context);
-    //         if (it != _context_stores.end() && it->second._compatibility.has_value()) {
-    //             return it->second._compatibility.value();
-    //         }
-    //     }
-    //     return compatibility_level::backward;
-    // }
-
-    ///\brief Get the compatibility level for a subject, or fallback to global.
-    result<compatibility_level> get_compatibility(
-      const context_subject& sub, default_to_global fallback) const {
-        if (!sub.is_context_only()) {
-            auto sub_it_res = get_subject_iter(sub, include_deleted::no);
-            if (sub_it_res.has_error()) {
-                return compatibility_not_found(sub);
-            }
-            auto sub_it = std::move(sub_it_res).assume_value();
-            if (auto compat = sub_it->second.compatibility; compat) {
-                return compat.value();
-            }
-
-            if (!fallback) {
-                return sub.ctx == global_context
-                // Scenario Cg
-                ? result<compatibility_level>{compatibility_level::backward}
-                // Scenarios Cc & Ce
-                : compatibility_not_found(sub);
-            }
-        }
-        // If the subject is context-only, or if the subject doesn't have a compatibility level and we're allowed to fallback, check the context's compatibility level
-        // return get_compatibility(sub.ctx, fallback);
-        const auto& ctx = sub.ctx;
-
-        if (ctx != global_context) {
-            auto it = _context_stores.find(ctx);
-            if (it != _context_stores.end() && it->second._compatibility.has_value()) {
-                return it->second._compatibility.value();
-            }
-            if (!fallback) {
-                return sub.is_default_context()
-                    // Scenarios A, Ca, Cb
-                    ? result<compatibility_level>{compatibility_level::backward}
-                    // Scenario Cd
-                    : compatibility_not_found(sub);
-            }
-        }
-        
-        auto it = _context_stores.find(global_context);
+    ///\brief Get the compatibility level of a context if it exists.
+    result<compatibility_level> get_compatibility(const context& ctx) const {
+        auto it = _context_stores.find(ctx);
         if (it != _context_stores.end() && it->second._compatibility.has_value()) {
             return it->second._compatibility.value();
         }
+        return compatibility_not_found(ctx);
+    }
 
-        // Scenarios B, Cf, Da, Db, Dc, Dd, De, Df, Dg
-        return compatibility_level::backward;
+    ///\brief Get the compatibility level for a subject if it exists.
+    result<compatibility_level> get_compatibility(const context_subject& sub) const {
+        auto sub_it_res = get_subject_iter(sub, include_deleted::no);
+        if (sub_it_res.has_error()) {
+            vlog(srlog.debug, "Subject {} not found when getting compatibility", sub);
+            return not_found(sub);
+        }
+        auto sub_it = std::move(sub_it_res).assume_value();
+        auto compat = sub_it->second.compatibility;
+        if (!compat.has_value()) {
+            vlog(
+              srlog.debug,
+              "Subject {} does not have subject-level compatibility configured",
+              sub);
+            return compatibility_not_found(sub);
+        }
+
+        return compat.value();
     }
 
     ///\brief Set the compatibility level of a context.
@@ -1301,6 +1264,7 @@ private:
     is_mutable _mutable;
     metrics::internal_metric_groups _metrics;
     metrics::public_metric_groups _public_metrics;
+
 };
 
 } // namespace pandaproxy::schema_registry

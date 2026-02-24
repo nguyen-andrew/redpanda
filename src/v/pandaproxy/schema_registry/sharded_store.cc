@@ -18,7 +18,6 @@
 #include "hashing/xx.h"
 #include "pandaproxy/logger.h"
 #include "pandaproxy/schema_registry/avro.h"
-#include "pandaproxy/schema_registry/error.h"
 #include "pandaproxy/schema_registry/errors.h"
 #include "pandaproxy/schema_registry/exceptions.h"
 #include "pandaproxy/schema_registry/json.h"
@@ -662,17 +661,65 @@ sharded_store::get_context_mode_written_at(context ctx) {
     co_return _store.local().get_context_mode_written_at(ctx).value();
 }
 
-// ss::future<compatibility_level> sharded_store::get_compatibility(context ctx, default_to_global fallback) {
-//     co_return _store.local().get_compatibility(ctx, fallback).value();
-// }
+ss::future<result<compatibility_level>> sharded_store::_get_compatibility(context ctx) {
+    co_return _store.local().get_compatibility(ctx);
+}
+
+ss::future<result<compatibility_level>>
+sharded_store::_get_compatibility(context_subject sub) {
+    auto sub_shard{shard_for(sub)};
+    co_return co_await _store.invoke_on(
+      sub_shard, [sub{std::move(sub)}](store& s) {
+          return s.get_compatibility(sub);
+      });
+}
 
 ss::future<compatibility_level> sharded_store::get_compatibility(
   context_subject sub, default_to_global fallback) {
-    auto sub_shard{shard_for(sub)};
-    co_return co_await _store.invoke_on(
-      sub_shard, [sub{std::move(sub)}, fallback](store& s) {
-          return s.get_compatibility(sub, fallback).value();
-      });
+    if (!sub.is_context_only()) {
+        auto res = co_await _get_compatibility(sub);
+        if (res.has_value()) {
+            co_return res.value();
+        }
+
+        // if (res.has_error() && res.error().code() == error_code::subject_not_found) {
+        //     // Edge case: 
+        //     co_return compatibility_not_found(sub);
+        // }
+
+        if (!fallback) {
+            co_return sub.ctx == global_context
+            // Scenario Cg
+            ? default_top_level_compat
+            // Scenarios Cc & Ce
+            : throw as_exception(compatibility_not_found(sub));
+
+        }
+    }
+    // If the subject is context-only, or if the subject doesn't have a compatibility level and we're allowed to fallback, check the context's compatibility level
+    // return get_compatibility(sub.ctx, fallback);
+    const auto& ctx = sub.ctx;
+    if (ctx != global_context) {
+        auto res = co_await _get_compatibility(ctx);
+        if (res.has_value()) {
+            co_return res.value();
+        }
+        if (!fallback) {
+            co_return sub.is_default_context()
+                // Scenarios A, Ca, Cb
+                ? default_top_level_compat
+                // Scenario Cd
+                : throw as_exception(compatibility_not_found(sub));
+        }
+    }
+
+    auto res = co_await _get_compatibility(global_context);
+    if (res.has_value()) {
+        co_return res.value();
+    }
+
+    // Scenarios B, Cf, Da, Db, Dc, Dd, De, Df, Dg
+    co_return default_top_level_compat;
 }
 
 ss::future<bool> sharded_store::set_compatibility(
