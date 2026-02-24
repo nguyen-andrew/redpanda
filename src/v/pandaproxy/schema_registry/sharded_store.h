@@ -179,8 +179,8 @@ public:
     ss::future<chunked_vector<seq_marker>>
     get_context_mode_written_at(context ctx);
 
-    ///\brief Get the compatibility level of a context.
-    ss::future<compatibility_level> get_compatibility(context ctx);
+    // ///\brief Get the compatibility level of a context, or fallback to global.
+    // ss::future<compatibility_level> get_compatibility(context ctx, default_to_global fallback);
 
     ///\brief Get the compatibility level for a subject, or fallback to global.
     ss::future<compatibility_level>
