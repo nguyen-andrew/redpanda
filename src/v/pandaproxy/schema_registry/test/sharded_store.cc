@@ -35,19 +35,19 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_global_compat) {
     auto stop_store = ss::defer([&store]() { store.stop().get(); });
 
     BOOST_REQUIRE(
-      store.get_compatibility(pps::default_context).get() == expected);
+      store.get_compatibility({pps::default_context, pps::subject{""}}).get() == expected);
 
     // duplicate should return false
     BOOST_REQUIRE(store.clear_compatibility(pps::default_context).get() == false);
     BOOST_REQUIRE(
-      store.get_compatibility(pps::default_context).get() == expected);
+      store.get_compatibility({pps::default_context, pps::subject{""}}).get() == expected);
 
     expected = pps::compatibility_level::full_transitive;
     BOOST_REQUIRE(
       store.set_compatibility(dummy_marker, pps::default_context, expected).get()
       == true);
     BOOST_REQUIRE(
-      store.get_compatibility(pps::default_context).get() == expected);
+      store.get_compatibility({pps::default_context, pps::subject{""}}).get() == expected);
 }
 
 constexpr std::string_view sv_string_def0{R"({"type":"string"})"};
@@ -71,7 +71,7 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_subject_compat) {
     auto stop_store = ss::defer([&store]() { store.stop().get(); });
 
     BOOST_REQUIRE(
-      store.get_compatibility(pps::default_context).get() == global_expected);
+      store.get_compatibility({pps::default_context, pps::subject{""}}).get() == global_expected);
 
     store
       .upsert(
@@ -108,7 +108,7 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_subject_compat) {
     BOOST_REQUIRE(
       store.get_compatibility(subject0, fallback).get() == sub_expected);
     BOOST_REQUIRE(
-      store.get_compatibility(pps::default_context).get() == global_expected);
+      store.get_compatibility({pps::default_context, pps::subject{""}}).get() == global_expected);
 
     // Clearing compatibility should fallback to global
     BOOST_REQUIRE(
@@ -184,13 +184,14 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_context_config) {
     pps::sharded_store store;
     store.start(pps::is_mutable::yes, ss::default_smp_service_group()).get();
     auto stop_store = ss::defer([&store]() { store.stop().get(); });
+    auto fallback = pps::default_to_global::yes;
 
     // Default config is backward compatibility
     BOOST_REQUIRE(
-      store.get_compatibility(pps::default_context).get()
+      store.get_compatibility({pps::default_context, pps::subject{""}}, fallback).get()
       == pps::compatibility_level::backward);
     BOOST_REQUIRE(
-      store.get_compatibility(test_ctx).get()
+      store.get_compatibility({test_ctx, pps::subject{""}}, fallback).get()
       == pps::compatibility_level::backward);
 
     // Set config on default context
@@ -200,10 +201,10 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_context_config) {
           dummy_marker, pps::default_context, pps::compatibility_level::full)
         .get());
     BOOST_REQUIRE(
-      store.get_compatibility(pps::default_context).get()
+      store.get_compatibility({pps::default_context, pps::subject{""}}, fallback).get()
       == pps::compatibility_level::full);
     BOOST_REQUIRE(
-      store.get_compatibility(test_ctx).get()
+      store.get_compatibility({test_ctx, pps::subject{""}}, fallback).get()
       == pps::compatibility_level::backward);
 
     // Set different config on test context
@@ -213,16 +214,16 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_context_config) {
           dummy_marker, test_ctx, pps::compatibility_level::none)
         .get());
     BOOST_REQUIRE(
-      store.get_compatibility(pps::default_context).get()
+      store.get_compatibility({pps::default_context, pps::subject{""}}, fallback).get()
       == pps::compatibility_level::full);
     BOOST_REQUIRE(
-      store.get_compatibility(test_ctx).get()
+      store.get_compatibility({test_ctx, pps::subject{""}}, fallback).get()
       == pps::compatibility_level::none);
 
     // Clear config returns to default
     BOOST_REQUIRE(store.clear_compatibility(test_ctx).get());
     BOOST_REQUIRE(
-      store.get_compatibility(test_ctx).get()
+      store.get_compatibility({test_ctx, pps::subject{""}}, fallback).get()
       == pps::compatibility_level::backward);
 }
 
