@@ -322,7 +322,7 @@ ss::future<std::optional<bool>> seq_writer::do_write_config(
             existing = co_await _store.get_compatibility(
               sub, default_to_global::no);
         } else {
-            existing = co_await _store.get_compatibility(sub.ctx);
+            existing = co_await _store.get_compatibility(sub.ctx, default_to_global::no);
         }
         if (existing == compat) {
             co_return false;
@@ -363,7 +363,7 @@ seq_writer::do_delete_config(context_subject ctx_sub) {
 
     try {
         if (ctx_sub.is_context_only()) {
-            co_await _store.get_compatibility(ctx_sub.ctx);
+            co_await _store.get_compatibility(ctx_sub.ctx, default_to_global::no);
         } else {
             co_await _store.get_compatibility(ctx_sub, default_to_global::no);
         }
