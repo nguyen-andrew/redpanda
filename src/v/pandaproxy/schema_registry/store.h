@@ -701,7 +701,12 @@ public:
 
         // 3. Non-default/non-global contexts
         if (fallback) {
-            return get_compatibility(global_context, fallback);
+            auto global_it = _context_stores.find(global_context);
+            if (global_it != _context_stores.end()
+                && global_it->second._compatibility.has_value()) {
+                return *global_it->second._compatibility;
+            }
+            return default_top_level_compat;
         }
         return compatibility_not_found(ctx);
     }
