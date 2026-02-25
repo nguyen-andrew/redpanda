@@ -26,9 +26,6 @@ class store;
 /// subject or schema_id
 class sharded_store final : public schema_getter {
 public:
-    static constexpr auto default_top_level_compat
-      = compatibility_level::backward;
-
     explicit sharded_store() = default;
     ~sharded_store() override = default;
     ss::future<> start(is_mutable mut, ss::smp_service_group sg);

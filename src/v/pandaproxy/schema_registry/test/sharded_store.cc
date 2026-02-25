@@ -207,7 +207,7 @@ SEASTAR_THREAD_TEST_CASE(
 
     BOOST_REQUIRE(
       store.get_compatibility(pps::default_context, no_fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 
     auto expected = pps::compatibility_level::full;
     BOOST_REQUIRE(
@@ -225,7 +225,7 @@ SEASTAR_THREAD_TEST_CASE(
 
     BOOST_REQUIRE(
       store.get_compatibility(pps::default_context, no_fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 }
 
 // Scenarios B, Da, Db
@@ -264,7 +264,7 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_default_context_config_fallback) {
 
     BOOST_REQUIRE(
       store.get_compatibility(pps::default_context, fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 
     auto expected1 = pps::compatibility_level::full;
     BOOST_REQUIRE(
@@ -301,7 +301,7 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_default_context_config_fallback) {
 
     BOOST_REQUIRE(
       store.get_compatibility(pps::default_context, fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 }
 
 // Scenario Cc
@@ -494,7 +494,7 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_global_context_config_no_fallback) {
 
     BOOST_REQUIRE(
       store.get_compatibility(ctx, no_fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 
     auto expected = pps::compatibility_level::full;
     BOOST_REQUIRE(
@@ -512,7 +512,7 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_global_context_config_no_fallback) {
 
     BOOST_REQUIRE(
       store.get_compatibility(ctx, no_fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 }
 
 // Scenario Cg
@@ -552,7 +552,7 @@ SEASTAR_THREAD_TEST_CASE(
 
     BOOST_REQUIRE(
       store.get_compatibility(ctx_sub, no_fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 
     // Set global context compatibility
     auto expected = pps::compatibility_level::full;
@@ -566,7 +566,7 @@ SEASTAR_THREAD_TEST_CASE(
 
     BOOST_REQUIRE(
       store.get_compatibility(ctx_sub, no_fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 }
 
 // Scenario Dc
@@ -617,7 +617,7 @@ SEASTAR_THREAD_TEST_CASE(
 
     BOOST_REQUIRE(
       store.get_compatibility(ctx_sub, fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 
     auto expected1 = pps::compatibility_level::full;
     BOOST_REQUIRE(
@@ -658,7 +658,7 @@ SEASTAR_THREAD_TEST_CASE(
       store.clear_compatibility(pps::global_context).get());
     BOOST_REQUIRE(
       store.get_compatibility(ctx_sub, fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 }
 
 // Scenario Dd
@@ -702,7 +702,7 @@ SEASTAR_THREAD_TEST_CASE(
 
     BOOST_REQUIRE(
       store.get_compatibility(ctx, fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 
     auto expected1 = pps::compatibility_level::full;
     BOOST_REQUIRE(
@@ -732,7 +732,7 @@ SEASTAR_THREAD_TEST_CASE(
       store.clear_compatibility(pps::global_context).get());
     BOOST_REQUIRE(
       store.get_compatibility(ctx, fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 }
 
 // Scenario De
@@ -787,7 +787,7 @@ SEASTAR_THREAD_TEST_CASE(
 
     BOOST_REQUIRE(
       store.get_compatibility(ctx_sub, fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 
     auto expected1 = pps::compatibility_level::full;
     BOOST_REQUIRE(
@@ -827,7 +827,7 @@ SEASTAR_THREAD_TEST_CASE(
       store.clear_compatibility(pps::global_context).get());
     BOOST_REQUIRE(
       store.get_compatibility(ctx_sub, fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 }
 
 // Scenario Df
@@ -863,7 +863,7 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_global_context_config_fallback) {
 
     BOOST_REQUIRE(
       store.get_compatibility(ctx, fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 
     auto expected = pps::compatibility_level::full;
     BOOST_REQUIRE(
@@ -878,7 +878,7 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_global_context_config_fallback) {
       store.clear_compatibility(pps::global_context).get());
     BOOST_REQUIRE(
       store.get_compatibility(ctx, fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 }
 
 // Scenario Dg
@@ -922,7 +922,7 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_subject_global_context_fallback) {
 
     BOOST_REQUIRE(
       store.get_compatibility(ctx_sub, fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 
     auto expected1 = pps::compatibility_level::full;
     BOOST_REQUIRE(
@@ -948,7 +948,7 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_subject_global_context_fallback) {
       store.clear_compatibility(pps::global_context).get());
     BOOST_REQUIRE(
       store.get_compatibility(ctx_sub, fallback).get()
-      == store.default_top_level_compat);
+      == pps::default_top_level_compat);
 }
 
 SEASTAR_THREAD_TEST_CASE(test_sharded_store_context_config_written_at) {

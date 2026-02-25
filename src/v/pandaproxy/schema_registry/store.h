@@ -696,7 +696,7 @@ public:
                     return *global_it->second._compatibility;
                 }
             }
-            return compatibility_level::backward;
+            return default_top_level_compat;
         }
 
         // 3. Non-default/non-global contexts
