@@ -318,7 +318,7 @@ get_config(server::request_t rq, server::reply_t rp) {
     co_await rq.service().writer().read_sync();
 
     auto res = co_await rq.service().schema_store().get_compatibility(
-      context_subject{default_context, subject{""}}, default_to_global::no);
+      default_context, default_to_global::no);
 
     auto resp = ppj::rjson_serialize_iobuf(get_config_req_rep{.compat = res});
     log_response(*rq.req, resp);

@@ -674,10 +674,23 @@ sharded_store::_get_compatibility(context_subject sub) {
       [sub{std::move(sub)}](store& s) { return s.get_compatibility(sub); });
 }
 
-// ss::future<compatibility_level> sharded_store::get_compatibility(
-//   context ctx, default_to_global fallback) {
+ss::future<compatibility_level>
+sharded_store::get_compatibility(context ctx, default_to_global fallback) {
+    auto res = co_await _get_compatibility(ctx);
+    if (res.has_value()) {
+        co_return res.value();
+    }
+    if (!fallback) {
+        co_return ctx == default_context || ctx() == ""
+          // Scenarios A, Ca, Cb
+          ? default_top_level_compat
+          // Scenario Cd
+          : throw as_exception(compatibility_not_found(ctx));
+    }
 
-// }
+    // Scenarios B, Cf, Da, Db, Dc, Dd, De, Df, Dg
+    co_return default_top_level_compat;
+}
 
 ss::future<compatibility_level> sharded_store::get_compatibility(
   context_subject sub, default_to_global fallback) {
@@ -698,23 +711,10 @@ ss::future<compatibility_level> sharded_store::get_compatibility(
             throw as_exception(compatibility_not_found(sub));
         }
     }
-    // If the subject is context-only, or if the subject doesn't have a compatibility level and we're allowed to fallback, check the context's compatibility level
-    // return get_compatibility(sub.ctx, fallback);
-    const auto& ctx = sub.ctx;
-    auto res = co_await _get_compatibility(ctx);
-    if (res.has_value()) {
-        co_return res.value();
-    }
-    if (!fallback) {
-        co_return sub.is_default_context()
-            // Scenarios A, Ca, Cb
-            ? default_top_level_compat
-            // Scenario Cd
-            : throw as_exception(compatibility_not_found(ctx));
-    }
-
-    // Scenarios B, Cf, Da, Db, Dc, Dd, De, Df, Dg
-    co_return default_top_level_compat;
+    // If the subject is context-only, or if the subject doesn't have a
+    // compatibility level and we're allowed to fallback, check the context's
+    // compatibility level
+    co_return co_await get_compatibility(sub.ctx, fallback);
 }
 
 ss::future<bool> sharded_store::set_compatibility(
