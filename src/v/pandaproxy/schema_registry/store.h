@@ -674,28 +674,59 @@ public:
     }
 
     ///\brief Get the compatibility level of a context.
-    result<compatibility_level> get_compatibility(const context& ctx, default_to_global) const {
+    result<compatibility_level>
+    get_compatibility(const context& ctx, default_to_global fallback) const {
+        // 1. Check context's own config
         auto it = _context_stores.find(ctx);
-        if (
-          it == _context_stores.end()
-          || !it->second._compatibility.has_value()) {
+        if (it != _context_stores.end()
+            && it->second._compatibility.has_value()) {
+            return *it->second._compatibility;
+        }
+
+        // 2. Default and global contexts always resolve to a value (never
+        //    error), because they are the top-level contexts in the
+        //    hierarchy. The fallback flag only controls whether
+        //    default_context consults global_context before returning the
+        //    hard-coded backward default.
+        if (ctx == default_context || ctx == global_context) {
+            if (fallback && ctx != global_context) {
+                auto global_it = _context_stores.find(global_context);
+                if (global_it != _context_stores.end()
+                    && global_it->second._compatibility.has_value()) {
+                    return *global_it->second._compatibility;
+                }
+            }
             return compatibility_level::backward;
         }
-        return *it->second._compatibility;
+
+        // 3. Non-default/non-global contexts
+        if (fallback) {
+            return get_compatibility(global_context, fallback);
+        }
+        return compatibility_not_found(ctx);
     }
 
     ///\brief Get the compatibility level for a subject, or fallback to global.
     result<compatibility_level> get_compatibility(
       const context_subject& sub, default_to_global fallback) const {
+        // 1. Check subject's own config (if the subject exists)
         auto sub_it_res = get_subject_iter(sub, include_deleted::no);
-        if (sub_it_res.has_error()) {
-            return compatibility_not_found(sub);
+        if (sub_it_res.has_value()) {
+            const auto& compat
+              = sub_it_res.assume_value()->second.compatibility;
+            if (compat) {
+                return *compat;
+            }
         }
-        auto sub_it = std::move(sub_it_res).assume_value();
-        auto compat = sub_it->second.compatibility;
-        if (compat) {
-            return compat.value();
-        } else if (fallback) {
+
+        // 2. Subjects in global_context always fall through to context level,
+        //    even with no_fallback — global IS the top level
+        if (sub.ctx == global_context) {
+            return get_compatibility(global_context, fallback);
+        }
+
+        // 3. Other contexts: respect fallback flag
+        if (fallback) {
             return get_compatibility(sub.ctx, fallback);
         }
         return compatibility_not_found(sub);

@@ -203,11 +203,10 @@ SEASTAR_THREAD_TEST_CASE(
     auto stop_store = ss::defer([&store]() { store.stop().get(); });
 
     auto no_fallback = pps::default_to_global::no;
-    auto ctx_sub = pps::context_subject{pps::default_context, pps::subject{""}};
     pps::seq_marker dummy_marker;
 
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, no_fallback).get()
+      store.get_compatibility(pps::default_context, no_fallback).get()
       == store.default_top_level_compat);
 
     auto expected = pps::compatibility_level::full;
@@ -218,14 +217,14 @@ SEASTAR_THREAD_TEST_CASE(
         .get());
 
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, no_fallback).get() == expected);
+      store.get_compatibility(pps::default_context, no_fallback).get() == expected);
 
     BOOST_REQUIRE(
       // TODO: Replace with single clear_compatibility(context_subject) overload
       store.clear_compatibility(pps::default_context).get());
 
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, no_fallback).get()
+      store.get_compatibility(pps::default_context, no_fallback).get()
       == store.default_top_level_compat);
 }
 
@@ -261,11 +260,10 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_default_context_config_fallback) {
     auto stop_store = ss::defer([&store]() { store.stop().get(); });
 
     auto fallback = pps::default_to_global::yes;
-    auto ctx_sub = pps::context_subject{pps::default_context, pps::subject{""}};
     pps::seq_marker dummy_marker;
 
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, fallback).get()
+      store.get_compatibility(pps::default_context, fallback).get()
       == store.default_top_level_compat);
 
     auto expected1 = pps::compatibility_level::full;
@@ -277,7 +275,7 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_default_context_config_fallback) {
         .get());
 
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, fallback).get() == expected1);
+      store.get_compatibility(pps::default_context, fallback).get() == expected1);
 
     auto expected2 = pps::compatibility_level::none;
     BOOST_REQUIRE(
@@ -288,21 +286,21 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_default_context_config_fallback) {
         .get());
 
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, fallback).get() == expected2);
+      store.get_compatibility(pps::default_context, fallback).get() == expected2);
 
     BOOST_REQUIRE(
       // TODO: Replace with single clear_compatibility(context_subject) overload
       store.clear_compatibility(pps::default_context).get());
 
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, fallback).get() == expected1);
+      store.get_compatibility(pps::default_context, fallback).get() == expected1);
 
     BOOST_REQUIRE(
       // TODO: Replace with single clear_compatibility(context_subject) overload
       store.clear_compatibility(pps::global_context).get());
 
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, fallback).get()
+      store.get_compatibility(pps::default_context, fallback).get()
       == store.default_top_level_compat);
 }
 
@@ -373,11 +371,10 @@ SEASTAR_THREAD_TEST_CASE(
 
     auto no_fallback = pps::default_to_global::no;
     auto ctx = pps::context{".ctx"};
-    auto ctx_sub = pps::context_subject{ctx, pps::subject{""}};
     pps::seq_marker dummy_marker;
 
     BOOST_REQUIRE_EXCEPTION(
-      store.get_compatibility(ctx_sub, no_fallback).get(),
+      store.get_compatibility(ctx, no_fallback).get(),
       pps::exception,
       [](const pps::exception& e) {
           return e.code() == pps::error_code::compatibility_not_found;
@@ -391,14 +388,14 @@ SEASTAR_THREAD_TEST_CASE(
         .get());
 
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, no_fallback).get() == expected);
+      store.get_compatibility(ctx, no_fallback).get() == expected);
 
     BOOST_REQUIRE(
       // TODO: Replace with single clear_compatibility(context_subject) overload
       store.clear_compatibility(ctx).get());
 
     BOOST_REQUIRE_EXCEPTION(
-      store.get_compatibility(ctx_sub, no_fallback).get(),
+      store.get_compatibility(ctx, no_fallback).get(),
       pps::exception,
       [](const pps::exception& e) {
           return e.code() == pps::error_code::compatibility_not_found;
@@ -493,11 +490,10 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_global_context_config_no_fallback) {
 
     auto no_fallback = pps::default_to_global::no;
     auto ctx = pandaproxy::schema_registry::global_context;
-    auto ctx_sub = pps::context_subject{ctx, pps::subject{""}};
     pps::seq_marker dummy_marker;
 
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, no_fallback).get()
+      store.get_compatibility(ctx, no_fallback).get()
       == store.default_top_level_compat);
 
     auto expected = pps::compatibility_level::full;
@@ -508,14 +504,14 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_global_context_config_no_fallback) {
         .get());
 
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, no_fallback).get() == expected);
+      store.get_compatibility(ctx, no_fallback).get() == expected);
 
     BOOST_REQUIRE(
       // TODO: Replace with single clear_compatibility(context_subject) overload
       store.clear_compatibility(ctx).get());
 
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, no_fallback).get()
+      store.get_compatibility(ctx, no_fallback).get()
       == store.default_top_level_compat);
 }
 
@@ -702,11 +698,10 @@ SEASTAR_THREAD_TEST_CASE(
 
     auto fallback = pps::default_to_global::yes;
     auto ctx = pps::context{".ctx"};
-    auto ctx_sub = pps::context_subject{ctx, pps::subject{""}};
     pps::seq_marker dummy_marker;
 
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, fallback).get()
+      store.get_compatibility(ctx, fallback).get()
       == store.default_top_level_compat);
 
     auto expected1 = pps::compatibility_level::full;
@@ -716,7 +711,7 @@ SEASTAR_THREAD_TEST_CASE(
         .set_compatibility(dummy_marker, pps::global_context, expected1)
         .get());
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, fallback).get() == expected1);
+      store.get_compatibility(ctx, fallback).get() == expected1);
 
     auto expected2 = pps::compatibility_level::forward;
     BOOST_REQUIRE(
@@ -725,18 +720,18 @@ SEASTAR_THREAD_TEST_CASE(
         .set_compatibility(dummy_marker, ctx, expected2)
         .get());
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, fallback).get() == expected2);
+      store.get_compatibility(ctx, fallback).get() == expected2);
 
     // TODO: Replace with single clear_compatibility(context_subject) overload
     BOOST_REQUIRE(store.clear_compatibility(ctx).get());
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, fallback).get() == expected1);
+      store.get_compatibility(ctx, fallback).get() == expected1);
 
     BOOST_REQUIRE(
       // TODO: Replace with single clear_compatibility(context_subject) overload
       store.clear_compatibility(pps::global_context).get());
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, fallback).get()
+      store.get_compatibility(ctx, fallback).get()
       == store.default_top_level_compat);
 }
 
@@ -864,11 +859,10 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_global_context_config_fallback) {
 
     auto fallback = pps::default_to_global::yes;
     auto ctx = pps::global_context;
-    auto ctx_sub = pps::context_subject{ctx, pps::subject{""}};
     pps::seq_marker dummy_marker;
 
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, fallback).get()
+      store.get_compatibility(ctx, fallback).get()
       == store.default_top_level_compat);
 
     auto expected = pps::compatibility_level::full;
@@ -877,13 +871,13 @@ SEASTAR_THREAD_TEST_CASE(test_sharded_store_global_context_config_fallback) {
         // TODO: Replace with single set_compatibility(context_subject) overload
         .set_compatibility(dummy_marker, pps::global_context, expected)
         .get());
-    BOOST_REQUIRE(store.get_compatibility(ctx_sub, fallback).get() == expected);
+    BOOST_REQUIRE(store.get_compatibility(ctx, fallback).get() == expected);
 
     BOOST_REQUIRE(
       // TODO: Replace with single clear_compatibility(context_subject) overload
       store.clear_compatibility(pps::global_context).get());
     BOOST_REQUIRE(
-      store.get_compatibility(ctx_sub, fallback).get()
+      store.get_compatibility(ctx, fallback).get()
       == store.default_top_level_compat);
 }
 
