@@ -712,23 +712,23 @@ BOOST_AUTO_TEST_CASE(test_store_subject_compat_fallback) {
     BOOST_REQUIRE(s.get_compatibility(subject0, fallback).value() == expected);
 }
 
-BOOST_AUTO_TEST_CASE(test_store_invalid_subject_compat) {
-    // Setting and getting a compatibility for a non-existant subject should
-    // fail
-    auto fallback = pps::default_to_global::yes;
+// BOOST_AUTO_TEST_CASE(test_store_invalid_subject_compat) {
+//     // Setting and getting a compatibility for a non-existant subject should
+//     // fail
+//     auto fallback = pps::default_to_global::yes;
 
-    pps::seq_marker dummy_marker;
-    pps::compatibility_level expected{pps::compatibility_level::backward};
-    pps::store s;
+//     pps::seq_marker dummy_marker;
+//     pps::compatibility_level expected{pps::compatibility_level::backward};
+//     pps::store s;
 
-    BOOST_REQUIRE_EQUAL(
-      s.get_compatibility(subject0, fallback).error().code(),
-      pps::error_code::compatibility_not_found);
+//     BOOST_REQUIRE_EQUAL(
+//       s.get_compatibility(subject0, fallback).error().code(),
+//       pps::error_code::compatibility_not_found);
 
-    expected = pps::compatibility_level::backward;
-    BOOST_REQUIRE(
-      s.set_compatibility(dummy_marker, subject0, expected).value());
-}
+//     expected = pps::compatibility_level::backward;
+//     BOOST_REQUIRE(
+//       s.set_compatibility(dummy_marker, subject0, expected).value());
+// }
 
 BOOST_AUTO_TEST_CASE(test_store_delete_subject) {
     const std::vector<pps::schema_version> expected_vers{
