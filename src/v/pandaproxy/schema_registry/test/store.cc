@@ -723,7 +723,7 @@ BOOST_AUTO_TEST_CASE(test_store_subject_compat_fallback) {
 BOOST_AUTO_TEST_CASE(test_store_invalid_subject_compat) {
     // Setting and getting a compatibility for a non-existant subject should
     // fail
-    auto fallback = pps::default_to_global::yes;
+    auto fallback = pps::default_to_global::no;
 
     pps::seq_marker dummy_marker;
     pps::compatibility_level expected{pps::compatibility_level::backward};
