@@ -605,23 +605,50 @@ public:
     }
 
     ///\brief Get the mode of a context.
-    result<mode> get_mode(const context& ctx) const {
+    result<mode>
+    get_mode(const context& ctx, default_to_global fallback) const {
+        // Check context's own mode
         auto it = _context_stores.find(ctx);
-        if (it == _context_stores.end() || !it->second._mode.has_value()) {
+        if (it != _context_stores.end() && it->second._mode.has_value()) {
+            return *it->second._mode;
+        }
+
+        // Default and global contexts always return a value, never
+        // an error. Other contexts enter this block only when
+        // fallback is enabled; otherwise they reach the
+        // error return below. Within this block, non-global contexts
+        // consult global_context first, and if that has no value,
+        // return the hard-coded default.
+        if (fallback || ctx == default_context || ctx == global_context) {
+            if (fallback && ctx != global_context) {
+                if (auto global_it = _context_stores.find(global_context);
+                    global_it != _context_stores.end()
+                    && global_it->second._mode.has_value()) {
+                    return *global_it->second._mode;
+                }
+            }
             return mode::read_write;
         }
-        return *it->second._mode;
+
+        return mode_not_found(ctx);
     }
 
     ///\brief Get the mode for a subject, or fallback to global.
     result<mode>
     get_mode(const context_subject& sub, default_to_global fallback) const {
+        // Check subject's own mode (if the subject exists)
         auto sub_it = get_subject_iter(sub, include_deleted::yes);
         if (sub_it && (sub_it.assume_value())->second.mode.has_value()) {
             return (sub_it.assume_value())->second.mode.value();
-        } else if (fallback) {
-            return get_mode(sub.ctx);
         }
+
+        // Fall through to context-level mode.
+        // global_context subjects always fall through; other contexts only fall
+        // through when fallback is set.
+        if (sub.ctx == global_context || fallback) {
+            return get_mode(sub.ctx, fallback);
+        }
+
         return mode_not_found(sub);
     }
 
