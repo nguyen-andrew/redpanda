@@ -705,17 +705,21 @@ public:
     ///\brief Get the compatibility level for a subject, or fallback to global.
     result<compatibility_level> get_compatibility(
       const context_subject& sub, default_to_global fallback) const {
+        // Check subject's own config (if the subject exists)
         auto sub_it_res = get_subject_iter(sub, include_deleted::no);
-        if (sub_it_res.has_error()) {
-            return compatibility_not_found(sub);
+        if (sub_it_res.has_value()) {
+            auto sub_it = std::move(sub_it_res).assume_value();
+            auto compat = sub_it->second.compatibility;
+            if (compat) {
+                return compat.value();
+            }
         }
-        auto sub_it = std::move(sub_it_res).assume_value();
-        auto compat = sub_it->second.compatibility;
-        if (compat) {
-            return compat.value();
-        } else if (fallback) {
+
+        // Fall through to context-level compatibility if fallback is enabled.
+        if (fallback) {
             return get_compatibility(sub.ctx, fallback);
         }
+
         return compatibility_not_found(sub);
     }
 
