@@ -691,11 +691,20 @@ public:
             return it->second._compatibility.value();
         }
 
-        // Default contexts always return a value, never
+        // Default and global contexts always return a value, never
         // an error. Other contexts enter this block only when
         // fallback is enabled; otherwise they reach the
-        // error return below.
-        if (fallback || ctx == default_context) {
+        // error return below. Within this block, non-global contexts
+        // consult global_context first, and if that has no value,
+        // return the hard-coded default.
+        if (fallback || ctx == default_context || ctx == global_context) {
+            if (fallback && ctx != global_context) {
+                if (auto global_it = _context_stores.find(global_context);
+                    global_it != _context_stores.end()
+                    && global_it->second._compatibility.has_value()) {
+                    return *global_it->second._compatibility;
+                }
+            }
             return default_top_level_compat;
         }
 
@@ -715,8 +724,10 @@ public:
             }
         }
 
-        // Fall through to context-level compatibility if fallback is enabled.
-        if (fallback) {
+        // Fall through to context-level compatibility.
+        // global_context subjects always fall through; other contexts only fall
+        // through when fallback is set.
+        if (sub.ctx == global_context || fallback) {
             return get_compatibility(sub.ctx, fallback);
         }
 
