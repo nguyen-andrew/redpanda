@@ -703,6 +703,10 @@ enum class compatibility_level {
     full_transitive,
 };
 
+/// The hard-coded compatibility level returned when no explicit config is set
+/// at any level in the fallback chain.
+inline constexpr auto default_top_level_compat = compatibility_level::backward;
+
 constexpr std::string_view to_string_view(compatibility_level v) {
     switch (v) {
     case compatibility_level::none:

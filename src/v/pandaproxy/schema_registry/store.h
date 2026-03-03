@@ -683,15 +683,23 @@ public:
 
     ///\brief Get the compatibility level of a context.
     result<compatibility_level>
-    get_compatibility(const context& ctx, default_to_global) const {
-        // TODO: Implement proper fallback behavior for context
-        auto it = _context_stores.find(ctx);
-        if (
-          it == _context_stores.end()
-          || !it->second._compatibility.has_value()) {
-            return compatibility_level::backward;
+    get_compatibility(const context& ctx, default_to_global fallback) const {
+        // Check context's own config
+        if (auto it = _context_stores.find(ctx);
+            it != _context_stores.end()
+            && it->second._compatibility.has_value()) {
+            return it->second._compatibility.value();
         }
-        return *it->second._compatibility;
+
+        // Default contexts always return a value, never
+        // an error. Other contexts enter this block only when
+        // fallback is enabled; otherwise they reach the
+        // error return below.
+        if (fallback || ctx == default_context) {
+            return default_top_level_compat;
+        }
+
+        return compatibility_not_found(ctx);
     }
 
     ///\brief Get the compatibility level for a subject, or fallback to global.
