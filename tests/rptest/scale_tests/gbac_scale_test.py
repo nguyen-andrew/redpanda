@@ -8,7 +8,6 @@
 # by the Apache License, Version 2.0
 
 import concurrent.futures
-import itertools
 import json
 import random
 import sys
@@ -34,6 +33,11 @@ from rptest.tests.redpanda_test import RedpandaTest
 from rptest.util import inject_remote_script, wait_until
 from rptest.utils.mode_checks import skip_fips_mode
 from rptest.utils.scale_parameters import ScaleParameters
+
+@dataclass
+class TestUser:
+    client_id: str
+    group_assignments: list[str] = field(default_factory=list)
 
 @dataclass
 class AclSpec:
@@ -202,7 +206,7 @@ class GBACScaleTestBase(RedpandaTest):
         groups: list[str],
         groups_per_user: int,
         client_id_prefix: str | None = None,
-    ) -> list[str]:
+    ) -> list[TestUser]:
         """
         Create OAuth service accounts and assign them to random groups.
 
@@ -213,7 +217,7 @@ class GBACScaleTestBase(RedpandaTest):
             client_id_prefix: Prefix for client IDs (default: CLIENT_ID_PREFIX)
 
         Returns:
-            List of client IDs created
+            List of TestUser objects created
         """
         if client_id_prefix is None:
             client_id_prefix = self.CLIENT_ID_PREFIX
@@ -224,21 +228,28 @@ class GBACScaleTestBase(RedpandaTest):
 
         def create_user_with_groups(i):
             client_id = f"{client_id_prefix}-{i}"
+            # Register a Keycloak client with serviceAccountsEnabled=True,
+            # which implicitly creates a service account user that
+            # authenticates via OAuth2 client credentials flow.
             self.keycloak.admin.create_client(client_id)
+
+            # Add a protocol mapper that embeds group memberships into the
+            # JWT "groups" claim; Redpanda reads this claim to enforce GBAC.
+            self.keycloak.admin.create_group_mapper(client_id, use_full_path=False)
 
             # Assign to random groups
             user_groups = random.sample(groups, min(groups_per_user, len(groups)))
             for group in user_groups:
                 self.keycloak.admin.add_service_user_to_group(client_id, group)
 
-            return client_id
+            return TestUser(client_id=client_id, group_assignments=user_groups)
 
         # TODO: (andrew) check if this is correct and what we want to do.
         with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
-            client_ids = list(executor.map(create_user_with_groups, range(user_count)))
+            users = list(executor.map(create_user_with_groups, range(user_count)))
 
-        self.logger.info(f"Successfully created {len(client_ids)} users")
-        return client_ids
+        self.logger.info(f"Successfully created {len(users)} users")
+        return users
 
     def _try_parse_json(self, node: ClusterNode, jsondata: str):
         try:
@@ -508,11 +519,6 @@ class GBACLargeTokenTest(GBACScaleTestBase):
         self.logger.info("Starting large token performance test")
 
         @dataclass
-        class TestUser:
-            client_id: str
-            group_assignments: list[str] = field(default_factory=list)
-
-        @dataclass
         class PhaseResults:
             metadata_stats: dict
             produce_stats: dict
@@ -551,24 +557,14 @@ class GBACLargeTokenTest(GBACScaleTestBase):
         # Generate all test phases upfront. For each phase, create Keycloak
         # service account clients with group mappers and assign them to a
         # random subset of groups (sized by that phase's group_count).
-        user_counter = itertools.count()
         phases: list[TestPhase] = []
-        for group_count in group_counts_to_test:
-            phase_users: list[TestUser] = []
-            for _ in range(users_per_group_count):
-                client_id = f"perf-client-{next(user_counter)}"
-                # Register a Keycloak client with serviceAccountsEnabled=True,
-                # which implicitly creates a service account user that
-                # authenticates via OAuth2 client credentials flow.
-                self.keycloak.admin.create_client(client_id)
-                # Add a protocol mapper that embeds group memberships into the
-                # JWT "groups" claim; Redpanda reads this claim to enforce GBAC.
-                self.keycloak.admin.create_group_mapper(client_id, use_full_path=False)
-                # Assign this user to `group_count` random groups from the pool.
-                user_groups = random.sample(groups, min(group_count, len(groups)))
-                for group in user_groups:
-                    self.keycloak.admin.add_service_user_to_group(client_id, group)
-                phase_users.append(TestUser(client_id=client_id, group_assignments=user_groups))
+        for i, group_count in enumerate(group_counts_to_test):
+            phase_users = self.create_users_with_groups(
+                user_count=users_per_group_count,
+                groups=groups,
+                groups_per_user=group_count,
+                client_id_prefix=f"perf-client-phase{i}",
+            )
             phases.append(TestPhase(group_count=group_count, users=phase_users))
 
         all_users = [user.client_id for phase in phases for user in phase.users]
@@ -703,6 +699,18 @@ class GBACManyACLsTest(GBACScaleTestBase):
         """
         self.logger.info("Starting many ACLs performance test")
 
+        @dataclass
+        class PhaseResults:
+            metadata_stats: dict
+            produce_stats: dict
+            idp_queries: int
+
+        @dataclass
+        class TestPhase:
+            group_count: int
+            users: list[TestUser] = field(default_factory=list)
+            results: PhaseResults | None = None
+
         # Calculate scale based on cluster resources
         scale = ScaleParameters(self.redpanda, replication_factor=3)
         num_groups = 600
@@ -727,10 +735,6 @@ class GBACManyACLsTest(GBACScaleTestBase):
         users = self.create_users_with_groups(
             num_users, groups, groups_per_user, client_id_prefix="acl-client"
         )
-
-        # Create group mappers for all users
-        for client_id in users:
-            self.keycloak.admin.create_group_mapper(client_id, use_full_path=False)
 
         node = self.cluster.alloc(ClusterSpec.simple_linux(1))[0]
         self.logger.info("Creating topics")
