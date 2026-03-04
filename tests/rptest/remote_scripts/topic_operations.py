@@ -377,9 +377,9 @@ commands = [COMMAND_CREATE, COMMAND_DELETE]
 def main(args):
     errorlevel = 0
     creds = None
-    if args.user_name and args.password and args.mechanism:
+    if args.username and args.password and args.mechanism:
         creds = Creds()
-        creds.username = args.user_name
+        creds.username = args.username
         creds.password = args.password
         creds.mechanism = args.mechanism
     tm = TopicSwarm(
@@ -474,8 +474,8 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "-u",
-        "--user-name",
-        dest="user_name",
+        "--username",
+        dest="username",
         default=None,
         type=str,
         help="Username to use when connecting to Kafka cluster",
