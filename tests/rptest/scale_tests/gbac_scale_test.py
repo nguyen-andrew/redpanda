@@ -8,6 +8,7 @@
 # by the Apache License, Version 2.0
 
 import concurrent.futures
+import itertools
 import json
 import random
 import sys
@@ -27,7 +28,7 @@ from rptest.services.admin import Admin
 from rptest.services.cluster import cluster
 from rptest.services.keycloak import KeycloakService
 from rptest.services.redpanda import LoggingConfig, SecurityConfig
-from rptest.tests.audit_log_test import AuditLogTestOauth
+from rptest.tests.audit_log_test import AuditLogTestOauth, ClassUID
 from rptest.tests.redpanda_test import RedpandaTest
 from rptest.util import inject_remote_script, wait_until
 from rptest.utils.mode_checks import skip_fips_mode
@@ -180,6 +181,7 @@ class GBACScaleTestBase(RedpandaTest):
             self.keycloak.admin.create_group(group_name)
             return group_name
 
+        # TODO: (andrew) check if this is correct and what we want to do.
         with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
             group_names = list(executor.map(create_group, range(count)))
 
@@ -223,6 +225,7 @@ class GBACScaleTestBase(RedpandaTest):
 
             return client_id
 
+        # TODO: (andrew) check if this is correct and what we want to do.
         with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
             client_ids = list(executor.map(create_user_with_groups, range(user_count)))
 
@@ -238,9 +241,10 @@ class GBACScaleTestBase(RedpandaTest):
             )
             return None
 
+    # TODO: (andrew) analyze this to understand how it works and if it's good.
     def create_topics_batch(
         self,
-        brokers: str,
+        brokers: str, # TODO: (andrew) should this be list[str] instead? And then we use ",".join() when passing to the script?
         node: ClusterNode,
         count: int,
         partitions: int = 3,
@@ -249,7 +253,7 @@ class GBACScaleTestBase(RedpandaTest):
     ) -> list[dict[str, Any]]:
         """
         Create topics in parallel batches.
-
+        # TODO: (andrew) Why args and :param? Clean up if we don't need both.
         Args:
             count: Number of topics to create
             partitions: Partitions per topic
@@ -268,6 +272,7 @@ class GBACScaleTestBase(RedpandaTest):
             f"Creating {count} topics with {partitions} partitions and {replicas} replicas"
         )
 
+        # TODO: (andrew) Check to see how this works
         remote_script_path = inject_remote_script(node, "topic_operations.py")
         args = [
             "python3",
@@ -340,8 +345,10 @@ class GBACScaleTestBase(RedpandaTest):
 
         def create_acls_for_topic(topic_idx):
             topic_name = topics[topic_idx]
+            # TODO: (andrew) is this distribution of Group vs User ACLs what we want?
             # Create mix of Group and User ACLs (70% Group, 30% User)
             for i in range(acls_per_topic):
+                # TODO: (andrew) does this work as intended? Double-check
                 if i < int(acls_per_topic * 0.7):  # 70% Group ACLs
                     principal = f"Group:{groups[topic_idx % len(groups)]}"
                 else:  # 30% User ACLs
@@ -357,10 +364,12 @@ class GBACScaleTestBase(RedpandaTest):
                     self.redpanda.SUPERUSER_CREDENTIALS[2],
                 )
 
+        # TODO: (andrew) analyze this to understand how it works and if it's good.
         # Process in batches
         batch_size = 100
         for batch_start in range(0, len(topics), batch_size):
             batch_end = min(batch_start + batch_size, len(topics))
+            # TODO: (andrew) why 32 here but 16 elsewhere? Check if this is good or if we should adjust.
             with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
                 list(executor.map(create_acls_for_topic, range(batch_start, batch_end)))
             self.logger.info(
@@ -419,9 +428,10 @@ class GBACScaleTestBase(RedpandaTest):
         expected_groups: list[str],
         record,
     ):
+        # TODO: (andrew) is this comment accurate? Analyze the logic to understand it and check if it's correct.
         """Filter for OIDC authentication events that include IDP groups"""
         if not (
-            record["class_uid"] == 3002
+            record["class_uid"] == ClassUID.AUTHENTICATION
             and record["service"]["name"] == service_name
             and record["auth_protocol_id"] == 6
             and (record["user"]["name"] == username if username is not None else True)
@@ -431,6 +441,7 @@ class GBACScaleTestBase(RedpandaTest):
 
         # Check that groups are present
         user_groups = record.get("user", {}).get("groups", [])
+        # TODO: (andrew) analyze this logic to understand it and check if it's correct.
         if not expected_groups:
             return True
 
@@ -445,6 +456,7 @@ class GBACScaleTestBase(RedpandaTest):
                 return False
         return True
 
+    # TODO: (andrew) analyze this method to understand how it works and if it's good. I don't know if this works as described?
     def get_idp_request_count(self) -> int:
         """
         Get the total number of IdP requests across all nodes.
@@ -508,17 +520,25 @@ class GBACLargeTokenTest(GBACScaleTestBase):
             replicas=3,
             name_prefix="perf-topic",
         )
+        self.cluster.free_single(node)
 
-        # Create group mapper (full_path=False for simpler group names)
+        # Create one Keycloak client (machine identity) per simulated user
         for i in range(users_per_group_count * len(group_counts_to_test)):
             client_id = f"perf-client-{i}"
+            # Registering a client with serviceAccountsEnabled=True implicitly creates a
+            # service account user, which authenticates via OAuth2 client credentials flow
             self.keycloak.admin.create_client(client_id)
+            # Adds a protocol mapper that embeds the service account's group memberships
+            # into the JWT "groups" claim; Redpanda reads this claim to enforce GBAC.
+            # use_full_path=False emits "mygroup" instead of "/mygroup"
             self.keycloak.admin.create_group_mapper(client_id, use_full_path=False)
 
         # Create ACLs for topics (mixed Group and User principals)
         self.logger.info("Creating ACLs for topics")
         for i, topic in enumerate(topics):
+            # TODO: (andrew) is this distribution of Group vs User ACLs what we want? Check if this is good or if we should adjust.
             # 40% Group-based ACLs, 60% User-based
+            # TODO: (andrew) is this the best way of generating this distribution? I wonder if there's a more straightforward way.
             for j in range(10):
                 if j < 4:
                     principal = f"Group:{groups[i % len(groups)]}"
@@ -535,22 +555,16 @@ class GBACLargeTokenTest(GBACScaleTestBase):
                     self.redpanda.SUPERUSER_CREDENTIALS[2],
                 )
 
-        self.cluster.free_single(node)
-
         # Test with different group counts
         results = {}
 
-        for group_count in group_counts_to_test:
+        for phase_idx, group_count in enumerate(group_counts_to_test):
             self.logger.info(f"\n=== Testing with {group_count} groups per user ===")
 
             # Create users with specific group count
             phase_users = []
             for i in range(users_per_group_count):
-                user_idx = (
-                    len(group_counts_to_test[: group_counts_to_test.index(group_count)])
-                    * users_per_group_count
-                    + i
-                )
+                user_idx = phase_idx * users_per_group_count + i
                 client_id = f"perf-client-{user_idx}"
 
                 # Assign groups
@@ -583,24 +597,20 @@ class GBACLargeTokenTest(GBACScaleTestBase):
 
             # Measure produce latency
             test_topic = random.choice(topics)
-            produce_latencies = []
+            produce_counter = itertools.count()
 
-            for i in range(iterations_per_test):
-                start = time.time()
+            def produce_op():
+                i = next(produce_counter)
                 producer.produce(
                     test_topic["name"],
                     key=f"key-{i}",
                     value=f"value-{i}".encode("utf-8"),
                 )
                 producer.flush(timeout=10)
-                produce_latencies.append((time.time() - start) * 1000)
 
-            produce_stats = {
-                "p50": numpy.percentile(produce_latencies, 50),
-                "p90": numpy.percentile(produce_latencies, 90),
-                "p99": numpy.percentile(produce_latencies, 99),
-                "mean": numpy.mean(produce_latencies),
-            }
+            produce_stats = self.measure_operation_latency(
+                produce_op, iterations=iterations_per_test
+            )
 
             # Get IdP query count
             idp_queries = self.get_idp_request_count()
@@ -617,10 +627,11 @@ class GBACLargeTokenTest(GBACScaleTestBase):
             self.logger.info(f"  IdP queries: {idp_queries}")
 
         # Assertions
-        baseline_metadata_p99 = results[5]["metadata"]["p99"]
-        baseline_produce_p99 = results[5]["produce"]["p99"]
+        baseline_group_count = group_counts_to_test[0]
+        baseline_metadata_p99 = results[baseline_group_count]["metadata"]["p99"]
+        baseline_produce_p99 = results[baseline_group_count]["produce"]["p99"]
 
-        for group_count in [50, 100, 150, 200]:
+        for group_count in group_counts_to_test[1:]:
             metadata_p99 = results[group_count]["metadata"]["p99"]
             produce_p99 = results[group_count]["produce"]["p99"]
 
