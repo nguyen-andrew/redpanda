@@ -543,6 +543,35 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
         )
 
     @cluster(num_nodes=4)
+    def test_newline_tab_in_group_name(self):
+        """Group names with newline/tab characters — handled gracefully.
+
+        The broker rejects ACL creation for principal names containing
+        control characters (newline, tab), so no matching ACL can exist.
+        This test verifies the broker handles OIDC tokens with such group
+        names without crashing and that access is correctly denied.
+        """
+        client_id = "ctrl-char-test"
+        self.stub_idp.register_client(client_id, claims={
+            "sub": "ctrl-char-user",
+            "groups": ["eng\nfin", "admin\tstaff"],
+        })
+
+        topic = "ctrl-char-topic"
+        self.rpk.create_topic(topic)
+        # Create an ACL for a normal group that does NOT match the
+        # control-character groups in the token.
+        self.rpk.sasl_allow_principal(
+            "Group:eng", ["all"], "topic", topic,
+            self.su_username, self.su_password, self.su_algorithm,
+        )
+
+        # The token's groups ("eng\nfin", "admin\tstaff") should not match
+        # "Group:eng". Verify the broker doesn't crash and denies access.
+        producer = self.make_producer(client_id)
+        self.assert_produce_denied(producer, topic)
+
+    @cluster(num_nodes=4)
     def test_empty_string_group(self):
         """Empty string group [''] — ignored or denied."""
         client_id = "empty-str-test"
