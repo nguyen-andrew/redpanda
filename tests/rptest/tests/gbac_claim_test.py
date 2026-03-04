@@ -1,6 +1,8 @@
 from confluent_kafka import KafkaError
 from ducktape.utils.util import wait_until
 
+from rptest.clients.admin.proto.redpanda.core.admin.v2 import security_pb2
+from rptest.clients.admin.v2 import Admin as AdminV2
 from rptest.clients.python_librdkafka import PythonLibrdkafka
 from rptest.clients.rpk import RpkTool
 from rptest.services.cluster import cluster
@@ -104,6 +106,15 @@ class StubOIDCTestBase(Test):
             f"Expected TOPIC_AUTHORIZATION_FAILED, got {err}"
         )
 
+    def resolve_oidc_identity(self, client_id, client_secret="stub-secret"):
+        """Get a token and resolve the OIDC identity via Admin API v2."""
+        token = self.stub_idp.get_access_token(client_id, client_secret)
+        admin_v2 = AdminV2(self.redpanda)
+        req = security_pb2.ResolveOidcIdentityRequest()
+        return admin_v2.security().resolve_oidc_identity(
+            req,
+            extra_headers={"Authorization": f"Bearer {token}"},
+        )
 
 class GbacGroupClaimFormatTest(StubOIDCTestBase):
     """Tests for various group claim formats in OIDC tokens."""
@@ -548,26 +559,34 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
 
         The broker rejects ACL creation for principal names containing
         control characters (newline, tab), so no matching ACL can exist.
-        This test verifies the broker handles OIDC tokens with such group
-        names without crashing and that access is correctly denied.
+        Use the Admin API v2 ResolveOidcIdentity RPC to verify the broker
+        parses these group names without crashing, then confirm access is
+        denied since no ACL can match.
         """
+        nl_group = "eng\nfin"
+        tab_group = "admin\tstaff"
         client_id = "ctrl-char-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "ctrl-char-user",
-            "groups": ["eng\nfin", "admin\tstaff"],
+            "groups": [nl_group, tab_group],
         })
 
+        # Verify the broker resolves the OIDC identity without crashing
+        # and that the control-character group names are present.
+        resp = self.resolve_oidc_identity(client_id)
+        assert set(resp.groups) == {nl_group, tab_group}, (
+            f"Expected groups {[nl_group, tab_group]}, got {list(resp.groups)}"
+        )
+
+        # Since rpk cannot create ACLs with control characters in the
+        # principal name, no matching ACL can exist. Verify access denied.
         topic = "ctrl-char-topic"
         self.rpk.create_topic(topic)
-        # Create an ACL for a normal group that does NOT match the
-        # control-character groups in the token.
         self.rpk.sasl_allow_principal(
             "Group:eng", ["all"], "topic", topic,
             self.su_username, self.su_password, self.su_algorithm,
         )
 
-        # The token's groups ("eng\nfin", "admin\tstaff") should not match
-        # "Group:eng". Verify the broker doesn't crash and denies access.
         producer = self.make_producer(client_id)
         self.assert_produce_denied(producer, topic)
 
