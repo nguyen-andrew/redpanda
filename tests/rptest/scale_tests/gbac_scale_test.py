@@ -35,18 +35,22 @@ from rptest.util import inject_remote_script, wait_until
 from rptest.utils.mode_checks import skip_fips_mode
 from rptest.utils.scale_parameters import ScaleParameters
 
+
 @dataclass
 class TestUser:
     client_id: str
     group_assignments: list[str] = field(default_factory=list)
 
+
 @dataclass
 class AclSpec:
     """Specification for a single ACL rule to create."""
+
     principal: str
     operations: list[str]
     resource_type: str
     resource_name: str
+
 
 class GBACScaleTestBase(RedpandaTest):
     """
@@ -264,7 +268,7 @@ class GBACScaleTestBase(RedpandaTest):
     # TODO: (andrew) analyze this to understand how it works and if it's good.
     def create_topics_batch(
         self,
-        brokers: str, # TODO: (andrew) should this be list[str] instead? And then we use ",".join() when passing to the script?
+        brokers: str,  # TODO: (andrew) should this be list[str] instead? And then we use ",".join() when passing to the script?
         node: ClusterNode,
         count: int,
         partitions: int = 3,
@@ -301,6 +305,12 @@ class GBACScaleTestBase(RedpandaTest):
             f"'{brokers}'",
             "--batch-size",
             "'256'",
+            "--username",
+            self.redpanda.SUPERUSER_CREDENTIALS[0],
+            "--password",
+            self.redpanda.SUPERUSER_CREDENTIALS[1],
+            "--mechanism",
+            self.redpanda.SUPERUSER_CREDENTIALS[2],
             "create",
             "--topic-prefix",
             f"'{name_prefix}'",
@@ -312,13 +322,8 @@ class GBACScaleTestBase(RedpandaTest):
             f"{replicas}",
             "--skip-randomize-names",
             "--kafka-batching",
-            "--username",
-            self.redpanda.SUPERUSER_CREDENTIALS[0],
-            "--password",
-            self.redpanda.SUPERUSER_CREDENTIALS[1],
-            "--mechanism",
-            self.redpanda.SUPERUSER_CREDENTIALS[2],
         ]
+
         cmd = " ".join(args)
         hostname = node.account.hostname
         self.logger.info(f'Starting topic creation script on "{hostname}"')
@@ -372,8 +377,10 @@ class GBACScaleTestBase(RedpandaTest):
             )
 
         for batch_start in range(0, len(acls), batch_size):
-            batch = acls[batch_start:batch_start + batch_size]
-            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            batch = acls[batch_start : batch_start + batch_size]
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=max_workers
+            ) as executor:
                 list(executor.map(create_acl, batch))
             self.logger.info(
                 f"Created ACLs {batch_start} to {batch_start + len(batch) - 1}"
@@ -397,7 +404,9 @@ class GBACScaleTestBase(RedpandaTest):
             self.redpanda, algorithm="OAUTHBEARER", oauth_config=cfg
         )
 
-    def measure_operation_latency_iterations(self, operation_fn, iterations: int = 100) -> dict:
+    def measure_operation_latency_iterations(
+        self, operation_fn, iterations: int = 100
+    ) -> dict:
         """
         Measure operation latency with percentile statistics.
 
@@ -408,9 +417,7 @@ class GBACScaleTestBase(RedpandaTest):
         Returns:
             Dictionary with p50, p90, p99, and mean latencies
         """
-        return self.measure_operation_latency(
-            operation_fn, [{}] * iterations
-        )
+        return self.measure_operation_latency(operation_fn, [{}] * iterations)
 
     def measure_operation_latency(
         self, operation_fn, args_list: list[dict[str, Any]]
@@ -575,23 +582,27 @@ class GBACLargeTokenTest(GBACScaleTestBase):
         self.logger.info("Creating ACLs for topics")
         num_group_acls = int(acls_per_topic * 0.4)
         num_user_acls = acls_per_topic - num_group_acls
-        acls : list[AclSpec] = []
+        acls: list[AclSpec] = []
         for topic in topics:
             principals = [
                 f"Group:{g}" for g in random.sample(groups, num_group_acls)
-            ] + [
-                f"User:{u}" for u in random.sample(all_users, num_user_acls)
-            ]
+            ] + [f"User:{u}" for u in random.sample(all_users, num_user_acls)]
             acls.extend(
-                AclSpec(principal=p, operations=["all"],
-                        resource_type="topic", resource_name=topic["name"])
+                AclSpec(
+                    principal=p,
+                    operations=["all"],
+                    resource_type="topic",
+                    resource_name=topic["name"],
+                )
                 for p in principals
             )
         self.create_acls_batch(acls, max_workers=1)
 
         # Test each phase
         for phase in phases:
-            self.logger.info(f"\n=== Testing with {phase.group_count} groups per user ===")
+            self.logger.info(
+                f"\n=== Testing with {phase.group_count} groups per user ==="
+            )
 
             # Measure operations with this phase's first user
             test_client_id = phase.users[0].client_id
@@ -761,14 +772,19 @@ class GBACManyACLsTest(GBACScaleTestBase):
                 users_to_topics.setdefault(u.client_id, set()).add(topic_name)
                 principals.append(f"User:{u.client_id}")
             acls.extend(
-                AclSpec(principal=p, operations=["read", "write"],
-                        resource_type="topic", resource_name=topic_name)
+                AclSpec(
+                    principal=p,
+                    operations=["read", "write"],
+                    resource_type="topic",
+                    resource_name=topic_name,
+                )
                 for p in principals
             )
         self.create_acls_batch(acls)
 
         users_that_can_access_topics: list[TestUser] = [
-            user for user in users
+            user
+            for user in users
             if users_to_topics.get(user.client_id)
             or any(groups_to_topics.get(g) for g in user.group_assignments)
         ]
@@ -779,7 +795,9 @@ class GBACManyACLsTest(GBACScaleTestBase):
 
         # Test operations with random users
         self.logger.info("Testing metadata operations")
-        test_users = random.sample(users_that_can_access_topics, min(10, len(users_that_can_access_topics)))
+        test_users = random.sample(
+            users_that_can_access_topics, min(10, len(users_that_can_access_topics))
+        )
 
         phases: list[TestPhase] = []
         for user in test_users:
@@ -809,7 +827,9 @@ class GBACManyACLsTest(GBACScaleTestBase):
         self.logger.info("Testing produce operations")
 
         def produce_op(test_phase: TestPhase):
-            test_phase.producer.produce(test_phase.topic, key="test", value=b"test-data")
+            test_phase.producer.produce(
+                test_phase.topic, key="test", value=b"test-data"
+            )
             test_phase.producer.flush(timeout=10)
 
         produce_stats = self.measure_operation_latency(
