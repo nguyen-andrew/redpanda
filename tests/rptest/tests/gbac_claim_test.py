@@ -1,5 +1,4 @@
-import time
-
+from confluent_kafka import KafkaError
 from ducktape.utils.util import wait_until
 
 from rptest.clients.python_librdkafka import PythonLibrdkafka
@@ -76,9 +75,34 @@ class StubOIDCTestBase(Test):
         producer.poll(0.0)
         return producer
 
-    def get_visible_topics(self, producer):
-        """Return the set of topics visible to the given producer."""
-        return set(producer.list_topics(timeout=5).topics.keys())
+    def _try_produce(self, producer, topic) -> KafkaError | None:
+        """Produce a message and return the delivery error, or None on success."""
+        errors: list[KafkaError | None] = []
+        producer.produce(
+            topic, b"test", on_delivery=lambda err, _msg: errors.append(err),
+        )
+        producer.flush(timeout=10)
+        assert len(errors) > 0, "Expected delivery callback but got none"
+        return errors[0]
+
+    def wait_until_produce_succeeds(self, producer, topic, err_msg):
+        """Retry producing until it succeeds (ACL propagation may be delayed)."""
+        wait_until(
+            lambda: self._try_produce(producer, topic) is None,
+            timeout_sec=10,
+            backoff_sec=1,
+            err_msg=err_msg,
+        )
+
+    def assert_produce_denied(self, producer, topic):
+        """Assert that producing to the topic fails with TOPIC_AUTHORIZATION_FAILED."""
+        err = self._try_produce(producer, topic)
+        assert err is not None, (
+            f"Expected produce to {topic} to be denied, but it succeeded"
+        )
+        assert err.code() == KafkaError.TOPIC_AUTHORIZATION_FAILED, (
+            f"Expected TOPIC_AUTHORIZATION_FAILED, got {err}"
+        )
 
 
 class GbacGroupClaimFormatTest(StubOIDCTestBase):
@@ -101,11 +125,8 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        wait_until(
-            lambda: topic in self.get_visible_topics(producer),
-            timeout_sec=10,
-            backoff_sec=1,
-            err_msg="JSON array group should grant topic access",
+        self.wait_until_produce_succeeds(
+            producer, topic, "JSON array group should grant topic access",
         )
 
     @cluster(num_nodes=4)
@@ -125,11 +146,8 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        wait_until(
-            lambda: topic in self.get_visible_topics(producer),
-            timeout_sec=10,
-            backoff_sec=1,
-            err_msg="CSV group string should grant topic access",
+        self.wait_until_produce_succeeds(
+            producer, topic, "CSV group string should grant topic access",
         )
 
     @cluster(num_nodes=4)
@@ -149,11 +167,8 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        wait_until(
-            lambda: topic in self.get_visible_topics(producer),
-            timeout_sec=10,
-            backoff_sec=1,
-            err_msg="CSV with whitespace should be trimmed and grant access",
+        self.wait_until_produce_succeeds(
+            producer, topic, "CSV with whitespace should be trimmed and grant access",
         )
 
     @cluster(num_nodes=4)
@@ -173,11 +188,8 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        wait_until(
-            lambda: topic in self.get_visible_topics(producer),
-            timeout_sec=10,
-            backoff_sec=1,
-            err_msg="CSV with empty entries should still parse valid groups",
+        self.wait_until_produce_succeeds(
+            producer, topic, "CSV with empty entries should still parse valid groups",
         )
 
     @cluster(num_nodes=4)
@@ -197,11 +209,7 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        time.sleep(3)
-        visible = self.get_visible_topics(producer)
-        assert topic not in visible, (
-            f"Empty group array should grant no access, but {topic} was visible"
-        )
+        self.assert_produce_denied(producer, topic)
 
     @cluster(num_nodes=4)
     def test_very_long_group_name(self):
@@ -221,11 +229,8 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        wait_until(
-            lambda: topic in self.get_visible_topics(producer),
-            timeout_sec=10,
-            backoff_sec=1,
-            err_msg="Very long group name should work",
+        self.wait_until_produce_succeeds(
+            producer, topic, "Very long group name should work",
         )
 
     @cluster(num_nodes=4)
@@ -245,11 +250,7 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        time.sleep(3)
-        visible = self.get_visible_topics(producer)
-        assert topic not in visible, (
-            f"Object groups should be rejected, but {topic} was visible"
-        )
+        self.assert_produce_denied(producer, topic)
 
 
 class GbacGroupClaimPathTest(StubOIDCTestBase):
@@ -276,11 +277,8 @@ class GbacGroupClaimPathTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        wait_until(
-            lambda: topic in self.get_visible_topics(producer),
-            timeout_sec=10,
-            backoff_sec=1,
-            err_msg="Nested claim path should extract groups",
+        self.wait_until_produce_succeeds(
+            producer, topic, "Nested claim path should extract groups",
         )
 
     @cluster(num_nodes=4)
@@ -299,11 +297,7 @@ class GbacGroupClaimPathTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        time.sleep(3)
-        visible = self.get_visible_topics(producer)
-        assert topic not in visible, (
-            f"Missing groups claim should deny access, but {topic} was visible"
-        )
+        self.assert_produce_denied(producer, topic)
 
     @cluster(num_nodes=4)
     def test_claim_path_resolves_to_object(self):
@@ -322,11 +316,7 @@ class GbacGroupClaimPathTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        time.sleep(3)
-        visible = self.get_visible_topics(producer)
-        assert topic not in visible, (
-            f"Object at group path should deny access, but {topic} was visible"
-        )
+        self.assert_produce_denied(producer, topic)
 
     @cluster(num_nodes=4)
     def test_claim_path_resolves_to_number(self):
@@ -345,11 +335,7 @@ class GbacGroupClaimPathTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        time.sleep(3)
-        visible = self.get_visible_topics(producer)
-        assert topic not in visible, (
-            f"Number at group path should deny access, but {topic} was visible"
-        )
+        self.assert_produce_denied(producer, topic)
 
 
 class GbacMalformedGroupClaimTest(StubOIDCTestBase):
@@ -372,11 +358,7 @@ class GbacMalformedGroupClaimTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        time.sleep(3)
-        visible = self.get_visible_topics(producer)
-        assert topic not in visible, (
-            f"Arbitrary string 'eng;fin' should not match Group:eng, but {topic} was visible"
-        )
+        self.assert_produce_denied(producer, topic)
 
     @cluster(num_nodes=4)
     def test_groups_as_number(self):
@@ -395,11 +377,7 @@ class GbacMalformedGroupClaimTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        time.sleep(3)
-        visible = self.get_visible_topics(producer)
-        assert topic not in visible, (
-            f"Number groups claim should deny access, but {topic} was visible"
-        )
+        self.assert_produce_denied(producer, topic)
 
     @cluster(num_nodes=4)
     def test_groups_as_object(self):
@@ -418,11 +396,7 @@ class GbacMalformedGroupClaimTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        time.sleep(3)
-        visible = self.get_visible_topics(producer)
-        assert topic not in visible, (
-            f"Object groups claim should deny access, but {topic} was visible"
-        )
+        self.assert_produce_denied(producer, topic)
 
     @cluster(num_nodes=4)
     def test_mixed_type_array(self):
@@ -441,10 +415,14 @@ class GbacMalformedGroupClaimTest(StubOIDCTestBase):
         )
 
         # Either valid strings are extracted or the entire claim is rejected.
-        # Test that it doesn't crash.
+        # Produce to verify the broker handles it without crashing.
         producer = self.make_producer(client_id)
-        time.sleep(3)
-        self.get_visible_topics(producer)
+        errors: list[KafkaError | None] = []
+        producer.produce(
+            topic, b"test", on_delivery=lambda err, _msg: errors.append(err),
+        )
+        producer.flush(timeout=10)
+        assert len(errors) > 0, "Expected delivery callback but got none"
 
     @cluster(num_nodes=4)
     def test_very_large_group_list(self):
@@ -464,11 +442,8 @@ class GbacMalformedGroupClaimTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        wait_until(
-            lambda: topic in self.get_visible_topics(producer),
-            timeout_sec=10,
-            backoff_sec=1,
-            err_msg="Large group list should still grant access for matching group",
+        self.wait_until_produce_succeeds(
+            producer, topic, "Large group list should still grant access for matching group",
         )
 
 
@@ -492,11 +467,7 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        time.sleep(3)
-        visible = self.get_visible_topics(producer)
-        assert topic not in visible, (
-            f"Case mismatch should deny access (exact match only), but {topic} was visible"
-        )
+        self.assert_produce_denied(producer, topic)
 
     @cluster(num_nodes=4)
     def test_unicode_group_name(self):
@@ -516,11 +487,8 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        wait_until(
-            lambda: topic in self.get_visible_topics(producer),
-            timeout_sec=10,
-            backoff_sec=1,
-            err_msg="Unicode group name should match correctly",
+        self.wait_until_produce_succeeds(
+            producer, topic, "Unicode group name should match correctly",
         )
 
     @cluster(num_nodes=4)
@@ -541,11 +509,8 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        wait_until(
-            lambda: topic in self.get_visible_topics(producer),
-            timeout_sec=10,
-            backoff_sec=1,
-            err_msg="Special character group name should match correctly",
+        self.wait_until_produce_succeeds(
+            producer, topic, "Special character group name should match correctly",
         )
 
     @cluster(num_nodes=4)
@@ -573,11 +538,8 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        wait_until(
-            lambda: topic in self.get_visible_topics(producer),
-            timeout_sec=10,
-            backoff_sec=1,
-            err_msg="Comma in group name (array form) should be supported",
+        self.wait_until_produce_succeeds(
+            producer, topic, "Comma in group name (array form) should be supported",
         )
 
     @cluster(num_nodes=4)
@@ -597,11 +559,7 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        time.sleep(3)
-        visible = self.get_visible_topics(producer)
-        assert topic not in visible, (
-            f"Empty string group should not grant access, but {topic} was visible"
-        )
+        self.assert_produce_denied(producer, topic)
 
     @cluster(num_nodes=4)
     def test_duplicate_groups(self):
@@ -620,9 +578,6 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
         )
 
         producer = self.make_producer(client_id)
-        wait_until(
-            lambda: topic in self.get_visible_topics(producer),
-            timeout_sec=10,
-            backoff_sec=1,
-            err_msg="Duplicate groups should be deduplicated and grant access",
+        self.wait_until_produce_succeeds(
+            producer, topic, "Duplicate groups should be deduplicated and grant access",
         )
