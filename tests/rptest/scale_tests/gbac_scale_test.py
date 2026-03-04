@@ -13,6 +13,7 @@ import json
 import random
 import sys
 import time
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
 import numpy
@@ -499,9 +500,27 @@ class GBACLargeTokenTest(GBACScaleTestBase):
         """
         self.logger.info("Starting large token performance test")
 
+        @dataclass
+        class TestUser:
+            client_id: str
+            group_assignments: list[str] = field(default_factory=list)
+
+        @dataclass
+        class PhaseResults:
+            metadata_stats: dict
+            produce_stats: dict
+            idp_queries: int
+
+        @dataclass
+        class TestPhase:
+            group_count: int
+            users: list[TestUser] = field(default_factory=list)
+            results: PhaseResults | None = None
+
         # Configuration
         total_groups = 1000
         num_topics = 500
+        acls_per_topic = 10
         group_counts_to_test = [5, 50, 100, 150, 200]  # 5 is baseline
         users_per_group_count = 10
         iterations_per_test = 50
@@ -522,29 +541,44 @@ class GBACLargeTokenTest(GBACScaleTestBase):
         )
         self.cluster.free_single(node)
 
-        # Create one Keycloak client (machine identity) per simulated user
-        for i in range(users_per_group_count * len(group_counts_to_test)):
-            client_id = f"perf-client-{i}"
-            # Registering a client with serviceAccountsEnabled=True implicitly creates a
-            # service account user, which authenticates via OAuth2 client credentials flow
-            self.keycloak.admin.create_client(client_id)
-            # Adds a protocol mapper that embeds the service account's group memberships
-            # into the JWT "groups" claim; Redpanda reads this claim to enforce GBAC.
-            # use_full_path=False emits "mygroup" instead of "/mygroup"
-            self.keycloak.admin.create_group_mapper(client_id, use_full_path=False)
+        # Generate all test phases upfront. For each phase, create Keycloak
+        # service account clients with group mappers and assign them to a
+        # random subset of groups (sized by that phase's group_count).
+        user_counter = itertools.count()
+        phases: list[TestPhase] = []
+        for group_count in group_counts_to_test:
+            phase_users: list[TestUser] = []
+            for _ in range(users_per_group_count):
+                client_id = f"perf-client-{next(user_counter)}"
+                # Register a Keycloak client with serviceAccountsEnabled=True,
+                # which implicitly creates a service account user that
+                # authenticates via OAuth2 client credentials flow.
+                self.keycloak.admin.create_client(client_id)
+                # Add a protocol mapper that embeds group memberships into the
+                # JWT "groups" claim; Redpanda reads this claim to enforce GBAC.
+                self.keycloak.admin.create_group_mapper(client_id, use_full_path=False)
+                # Assign this user to `group_count` random groups from the pool.
+                user_groups = random.sample(groups, min(group_count, len(groups)))
+                for group in user_groups:
+                    self.keycloak.admin.add_service_user_to_group(client_id, group)
+                phase_users.append(TestUser(client_id=client_id, group_assignments=user_groups))
+            phases.append(TestPhase(group_count=group_count, users=phase_users))
+
+        all_users = [user.client_id for phase in phases for user in phase.users]
 
         # Create ACLs for topics (mixed Group and User principals)
+        # 40% Group-based ACLs, 60% User-based ACLs
         self.logger.info("Creating ACLs for topics")
-        for i, topic in enumerate(topics):
-            # TODO: (andrew) is this distribution of Group vs User ACLs what we want? Check if this is good or if we should adjust.
-            # 40% Group-based ACLs, 60% User-based
-            # TODO: (andrew) is this the best way of generating this distribution? I wonder if there's a more straightforward way.
-            for j in range(10):
-                if j < 4:
-                    principal = f"Group:{groups[i % len(groups)]}"
-                else:
-                    principal = f"User:perf-client-{j}"
+        num_group_acls = int(acls_per_topic * 0.4)
+        num_user_acls = acls_per_topic - num_group_acls
+        for topic in topics:
+            acl_principals = [
+                f"Group:{g}" for g in random.sample(groups, num_group_acls)
+            ] + [
+                f"User:{u}" for u in random.sample(all_users, num_user_acls)
+            ]
 
+            for principal in acl_principals:
                 self.super_rpk.sasl_allow_principal(
                     principal,
                     ["all"],
@@ -555,30 +589,12 @@ class GBACLargeTokenTest(GBACScaleTestBase):
                     self.redpanda.SUPERUSER_CREDENTIALS[2],
                 )
 
-        # Test with different group counts
-        results = {}
+        # Test each phase
+        for phase in phases:
+            self.logger.info(f"\n=== Testing with {phase.group_count} groups per user ===")
 
-        for phase_idx, group_count in enumerate(group_counts_to_test):
-            self.logger.info(f"\n=== Testing with {group_count} groups per user ===")
-
-            # Create users with specific group count
-            phase_users = []
-            for i in range(users_per_group_count):
-                user_idx = phase_idx * users_per_group_count + i
-                client_id = f"perf-client-{user_idx}"
-
-                # Assign groups
-                user_groups = random.sample(groups, min(group_count, len(groups)))
-                for group in user_groups:
-                    self.keycloak.admin.add_service_user_to_group(client_id, group)
-
-                phase_users.append(client_id)
-
-            # Let group assignments propagate
-            time.sleep(2)
-
-            # Measure operations with this user
-            test_client_id = phase_users[0]
+            # Measure operations with this phase's first user
+            test_client_id = phase.users[0].client_id
             client = self.get_oauth_client(test_client_id)
             producer = client.get_producer()
 
@@ -615,25 +631,27 @@ class GBACLargeTokenTest(GBACScaleTestBase):
             # Get IdP query count
             idp_queries = self.get_idp_request_count()
 
-            results[group_count] = {
-                "metadata": metadata_stats,
-                "produce": produce_stats,
-                "idp_queries": idp_queries,
-            }
+            phase.results = PhaseResults(
+                metadata_stats=metadata_stats,
+                produce_stats=produce_stats,
+                idp_queries=idp_queries,
+            )
 
-            self.logger.info(f"Group count {group_count} results:")
+            self.logger.info(f"Group count {phase.group_count} results:")
             self.logger.info(f"  Metadata P99: {metadata_stats['p99']:.2f} ms")
             self.logger.info(f"  Produce P99: {produce_stats['p99']:.2f} ms")
             self.logger.info(f"  IdP queries: {idp_queries}")
 
         # Assertions
-        baseline_group_count = group_counts_to_test[0]
-        baseline_metadata_p99 = results[baseline_group_count]["metadata"]["p99"]
-        baseline_produce_p99 = results[baseline_group_count]["produce"]["p99"]
+        baseline = phases[0].results
+        assert baseline is not None
+        baseline_metadata_p99 = baseline.metadata_stats["p99"]
+        baseline_produce_p99 = baseline.produce_stats["p99"]
 
-        for group_count in group_counts_to_test[1:]:
-            metadata_p99 = results[group_count]["metadata"]["p99"]
-            produce_p99 = results[group_count]["produce"]["p99"]
+        for phase in phases[1:]:
+            assert phase.results is not None
+            metadata_p99 = phase.results.metadata_stats["p99"]
+            produce_p99 = phase.results.produce_stats["p99"]
 
             # P99 latency should not increase more than 20% for metadata
             metadata_increase = (
@@ -641,7 +659,7 @@ class GBACLargeTokenTest(GBACScaleTestBase):
             ) / baseline_metadata_p99
             assert metadata_increase < 0.20, (
                 f"Metadata P99 latency increased by {metadata_increase * 100:.1f}% "
-                f"with {group_count} groups (expected < 20%)"
+                f"with {phase.group_count} groups (expected < 20%)"
             )
 
             # P99 latency should not increase more than 20% for produce
@@ -650,11 +668,11 @@ class GBACLargeTokenTest(GBACScaleTestBase):
             ) / baseline_produce_p99
             assert produce_increase < 0.20, (
                 f"Produce P99 latency increased by {produce_increase * 100:.1f}% "
-                f"with {group_count} groups (expected < 20%)"
+                f"with {phase.group_count} groups (expected < 20%)"
             )
 
             self.logger.info(
-                f"✓ Group count {group_count}: metadata +{metadata_increase * 100:.1f}%, "
+                f"✓ Group count {phase.group_count}: metadata +{metadata_increase * 100:.1f}%, "
                 f"produce +{produce_increase * 100:.1f}%"
             )
 
