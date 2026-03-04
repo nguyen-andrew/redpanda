@@ -14,7 +14,7 @@ import random
 import sys
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 import numpy
 
@@ -35,6 +35,13 @@ from rptest.util import inject_remote_script, wait_until
 from rptest.utils.mode_checks import skip_fips_mode
 from rptest.utils.scale_parameters import ScaleParameters
 
+@dataclass
+class AclSpec:
+    """Specification for a single ACL rule to create."""
+    principal: str
+    operations: list[str]
+    resource_type: str
+    resource_name: str
 
 class GBACScaleTestBase(RedpandaTest):
     """
@@ -194,7 +201,7 @@ class GBACScaleTestBase(RedpandaTest):
         user_count: int,
         groups: list[str],
         groups_per_user: int,
-        client_id_prefix: Optional[str] = None,
+        client_id_prefix: str | None = None,
     ) -> list[str]:
         """
         Create OAuth service accounts and assign them to random groups.
@@ -328,56 +335,39 @@ class GBACScaleTestBase(RedpandaTest):
         self.logger.debug(f'Topic details from "{hostname}": {topic_details}')
         return topic_details
 
-    def create_group_acls_batch(
-        self, topics: list[str], groups: list[str], acls_per_topic: int
+    def create_acls_batch(
+        self,
+        acls: list[AclSpec],
+        batch_size: int = 100,
+        max_workers: int = 32,
     ):
         """
-        Create group-based ACLs in parallel batches.
+        Create ACLs in parallel batches.
 
         Args:
-            topics: List of topic names
-            groups: List of group names
-            acls_per_topic: Number of ACL rules per topic
+            acls: List of AclSpec describing each ACL rule to create
+            batch_size: Number of ACLs to process per batch
+            max_workers: Thread pool size per batch
         """
-        total_acls = len(topics) * acls_per_topic
-        self.logger.info(
-            f"Creating {total_acls} ACLs ({acls_per_topic} per topic) across {len(topics)} topics"
-        )
+        self.logger.info(f"Creating {len(acls)} ACLs in batches of {batch_size}")
 
-        def create_acls_for_topic(topic_idx):
-            topic_name = topics[topic_idx]
-            # TODO: (andrew) is this distribution of Group vs User ACLs what we want?
-            # Create mix of Group and User ACLs (70% Group, 30% User)
-            for i in range(acls_per_topic):
-                # TODO: (andrew) does this work as intended? Double-check
-                if i < int(acls_per_topic * 0.7):  # 70% Group ACLs
-                    principal = f"Group:{groups[topic_idx % len(groups)]}"
-                else:  # 30% User ACLs
-                    principal = f"User:user-{i}"
-
-                self.super_rpk.sasl_allow_principal(
-                    principal,
-                    ["read", "write"],
-                    "topic",
-                    topic_name,
-                    self.redpanda.SUPERUSER_CREDENTIALS[0],
-                    self.redpanda.SUPERUSER_CREDENTIALS[1],
-                    self.redpanda.SUPERUSER_CREDENTIALS[2],
-                )
-
-        # TODO: (andrew) analyze this to understand how it works and if it's good.
-        # Process in batches
-        batch_size = 100
-        for batch_start in range(0, len(topics), batch_size):
-            batch_end = min(batch_start + batch_size, len(topics))
-            # TODO: (andrew) why 32 here but 16 elsewhere? Check if this is good or if we should adjust.
-            with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
-                list(executor.map(create_acls_for_topic, range(batch_start, batch_end)))
-            self.logger.info(
-                f"Created ACLs for topics {batch_start} to {batch_end - 1}"
+        def create_acl(spec: AclSpec):
+            self.super_rpk.sasl_allow_principal(
+                spec.principal,
+                spec.operations,
+                spec.resource_type,
+                spec.resource_name,
             )
 
-        self.logger.info(f"Successfully created {total_acls} ACL rules")
+        for batch_start in range(0, len(acls), batch_size):
+            batch = acls[batch_start:batch_start + batch_size]
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                list(executor.map(create_acl, batch))
+            self.logger.info(
+                f"Created ACLs {batch_start} to {batch_start + len(batch) - 1}"
+            )
+
+        self.logger.info(f"Successfully created {len(acls)} ACL rules")
 
     def get_oauth_client(self, client_id: str) -> PythonLibrdkafka:
         """
@@ -424,8 +414,8 @@ class GBACScaleTestBase(RedpandaTest):
     @staticmethod
     def oidc_authn_with_groups_filter_function(
         service_name: str,
-        username: Optional[str],
-        sub: Optional[str],
+        username: str | None,
+        sub: str | None,
         expected_groups: list[str],
         record,
     ):
@@ -571,23 +561,19 @@ class GBACLargeTokenTest(GBACScaleTestBase):
         self.logger.info("Creating ACLs for topics")
         num_group_acls = int(acls_per_topic * 0.4)
         num_user_acls = acls_per_topic - num_group_acls
+        acls : list[AclSpec] = []
         for topic in topics:
-            acl_principals = [
+            principals = [
                 f"Group:{g}" for g in random.sample(groups, num_group_acls)
             ] + [
                 f"User:{u}" for u in random.sample(all_users, num_user_acls)
             ]
-
-            for principal in acl_principals:
-                self.super_rpk.sasl_allow_principal(
-                    principal,
-                    ["all"],
-                    "topic",
-                    topic["name"],
-                    self.redpanda.SUPERUSER_CREDENTIALS[0],
-                    self.redpanda.SUPERUSER_CREDENTIALS[1],
-                    self.redpanda.SUPERUSER_CREDENTIALS[2],
-                )
+            acls.extend(
+                AclSpec(principal=p, operations=["all"],
+                        resource_type="topic", resource_name=topic["name"])
+                for p in principals
+            )
+        self.create_acls_batch(acls, max_workers=1)
 
         # Test each phase
         for phase in phases:
@@ -710,7 +696,6 @@ class GBACManyACLsTest(GBACScaleTestBase):
         acls_per_topic = 10  # 7 Group ACLs, 3 User ACLs
 
         brokers = ",".join(self.redpanda.brokers_list())
-        node = self.cluster.alloc(ClusterSpec.simple_linux(1))[0]
 
         total_acls = num_topics * acls_per_topic
         self.logger.info(
@@ -731,6 +716,7 @@ class GBACManyACLsTest(GBACScaleTestBase):
         for client_id in users:
             self.keycloak.admin.create_group_mapper(client_id, use_full_path=False)
 
+        node = self.cluster.alloc(ClusterSpec.simple_linux(1))[0]
         self.logger.info("Creating topics")
         topics = self.create_topics_batch(
             brokers=brokers,
@@ -740,10 +726,25 @@ class GBACManyACLsTest(GBACScaleTestBase):
             replicas=3,
             name_prefix="acl-topic",
         )
+        self.cluster.free_single(node)
 
         self.logger.info("Creating ACLs")
         topic_names = [topic["name"] for topic in topics]
-        self.create_group_acls_batch(topic_names, groups, acls_per_topic)
+        num_group_acls = int(acls_per_topic * 0.7)
+        num_user_acls = acls_per_topic - num_group_acls
+        acls: list[AclSpec] = []
+        for topic_name in topic_names:
+            principals = [
+                f"Group:{g}" for g in random.sample(groups, num_group_acls)
+            ] + [
+                f"User:user-{i}" for i in range(num_user_acls)
+            ]
+            acls.extend(
+                AclSpec(principal=p, operations=["read", "write"],
+                        resource_type="topic", resource_name=topic_name)
+                for p in principals
+            )
+        self.create_acls_batch(acls)
 
         # Let ACLs propagate
         self.logger.info("Waiting for ACLs to propagate")
