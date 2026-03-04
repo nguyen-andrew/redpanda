@@ -12,6 +12,7 @@ import json
 import random
 import sys
 import time
+from confluent_kafka import Producer
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -700,16 +701,10 @@ class GBACManyACLsTest(GBACScaleTestBase):
         self.logger.info("Starting many ACLs performance test")
 
         @dataclass
-        class PhaseResults:
-            metadata_stats: dict
-            produce_stats: dict
-            idp_queries: int
-
-        @dataclass
         class TestPhase:
-            group_count: int
-            users: list[TestUser] = field(default_factory=list)
-            results: PhaseResults | None = None
+            user: TestUser
+            producer: Producer
+            topic: str
 
         # Calculate scale based on cluster resources
         scale = ScaleParameters(self.redpanda, replication_factor=3)
@@ -753,12 +748,18 @@ class GBACManyACLsTest(GBACScaleTestBase):
         num_group_acls = int(acls_per_topic * 0.7)
         num_user_acls = acls_per_topic - num_group_acls
         acls: list[AclSpec] = []
+        users_to_topics: dict[str, set[str]] = {}
+        groups_to_topics: dict[str, set[str]] = {}
         for topic_name in topic_names:
-            principals = [
-                f"Group:{g}" for g in random.sample(groups, num_group_acls)
-            ] + [
-                f"User:user-{i}" for i in range(num_user_acls)
-            ]
+            groups_for_topic = random.sample(groups, num_group_acls)
+            users_for_topic = random.sample(users, num_user_acls)
+            principals: list[str] = []
+            for g in groups_for_topic:
+                groups_to_topics.setdefault(g, set()).add(topic_name)
+                principals.append(f"Group:{g}")
+            for u in users_for_topic:
+                users_to_topics.setdefault(u.client_id, set()).add(topic_name)
+                principals.append(f"User:{u.client_id}")
             acls.extend(
                 AclSpec(principal=p, operations=["read", "write"],
                         resource_type="topic", resource_name=topic_name)
@@ -766,68 +767,65 @@ class GBACManyACLsTest(GBACScaleTestBase):
             )
         self.create_acls_batch(acls)
 
+        users_that_can_access_topics: list[TestUser] = [
+            user for user in users
+            if users_to_topics.get(user.client_id)
+            or any(groups_to_topics.get(g) for g in user.group_assignments)
+        ]
+
         # Let ACLs propagate
         self.logger.info("Waiting for ACLs to propagate")
         time.sleep(10)
 
         # Test operations with random users
         self.logger.info("Testing metadata operations")
-        test_users = random.sample(users, min(10, len(users)))
+        test_users = random.sample(users_that_can_access_topics, min(10, len(users_that_can_access_topics)))
 
-        metadata_latencies = []
-        for client_id in test_users:
+        phases: list[TestPhase] = []
+        for user in test_users:
+            client_id = user.client_id
             client = self.get_oauth_client(client_id)
             producer = client.get_producer()
+            accessible_topics = set(users_to_topics.get(client_id, set()))
+            for g in user.group_assignments:
+                accessible_topics |= groups_to_topics.get(g, set())
 
-            start = time.time()
-            topics_metadata = producer.list_topics(timeout=30)
-            latency_ms = (time.time() - start) * 1000
-            metadata_latencies.append(latency_ms)
+            assert accessible_topics, f"User {client_id} has no valid topics to test"
 
-            self.logger.info(
-                f"User {client_id}: listed {len(topics_metadata.topics)} topics "
-                f"in {latency_ms:.2f} ms"
-            )
+            test_topic = random.choice(list(accessible_topics))
+            phases.append(TestPhase(user=user, producer=producer, topic=test_topic))
 
-        metadata_p99 = numpy.percentile(metadata_latencies, 99)
+        # Measure metadata latency
+        def metadata_op(test_phase: TestPhase):
+            topics_metadata = test_phase.producer.list_topics(timeout=30)
+            return len(topics_metadata.topics)
+
+        metadata_stats = self.measure_operation_latency(
+            metadata_op, args_list=[{"test_phase": p} for p in phases]
+        )
+        metadata_p99 = metadata_stats["p99"]
 
         # Test produce operations
         self.logger.info("Testing produce operations")
-        produce_latencies = []
 
-        for client_id in test_users:
-            client = self.get_oauth_client(client_id)
-            producer = client.get_producer()
+        def produce_op(test_phase: TestPhase):
+            test_phase.producer.produce(test_phase.topic, key="test", value=b"test-data")
+            test_phase.producer.flush(timeout=10)
 
-            # Try to produce to a random topic
-            test_topic = random.choice(topic_names)
-            try:
-                start = time.time()
-                producer.produce(test_topic, key="test", value=b"test-data")
-                producer.flush(timeout=10)
-                latency_ms = (time.time() - start) * 1000
-                produce_latencies.append(latency_ms)
-                self.logger.info(f"User {client_id}: produced in {latency_ms:.2f} ms")
-            except Exception as e:
-                # User may not have permission to this specific topic
-                self.logger.debug(f"User {client_id} couldn't produce: {e}")
-
-        if produce_latencies:
-            produce_p99 = numpy.percentile(produce_latencies, 99)
-        else:
-            produce_p99 = 0
-            self.logger.warning("No successful produce operations")
+        produce_stats = self.measure_operation_latency(
+            produce_op, args_list=[{"test_phase": p} for p in phases]
+        )
+        produce_p99 = produce_stats["p99"]
 
         # Assertions
         assert metadata_p99 < 2000, (
             f"Metadata P99 latency {metadata_p99:.2f}ms exceeds 2000ms threshold"
         )
 
-        if produce_p99 > 0:
-            # Compare to a baseline - produce should be reasonably fast
-            assert produce_p99 < 500, (
-                f"Produce P99 latency {produce_p99:.2f}ms exceeds 500ms threshold"
-            )
+        # Compare to a baseline - produce should be reasonably fast
+        assert produce_p99 < 500, (
+            f"Produce P99 latency {produce_p99:.2f}ms exceeds 500ms threshold"
+        )
 
         self.logger.info("\n=== Many ACLs Test PASSED ===")
         self.logger.info(f"  Metadata P99: {metadata_p99:.2f} ms")
