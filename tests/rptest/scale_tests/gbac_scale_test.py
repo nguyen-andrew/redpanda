@@ -385,7 +385,7 @@ class GBACScaleTestBase(RedpandaTest):
             self.redpanda, algorithm="OAUTHBEARER", oauth_config=cfg
         )
 
-    def measure_operation_latency(self, operation_fn, iterations: int = 100) -> dict:
+    def measure_operation_latency_iterations(self, operation_fn, iterations: int = 100) -> dict:
         """
         Measure operation latency with percentile statistics.
 
@@ -396,10 +396,27 @@ class GBACScaleTestBase(RedpandaTest):
         Returns:
             Dictionary with p50, p90, p99, and mean latencies
         """
+        return self.measure_operation_latency(
+            operation_fn, [{}] * iterations
+        )
+
+    def measure_operation_latency(
+        self, operation_fn, args_list: list[dict[str, Any]]
+    ) -> dict:
+        """
+        Measure operation latency across a list of call arguments.
+
+        Args:
+            operation_fn: Function to measure
+            args_list: Each element is a kwargs dict passed to operation_fn
+
+        Returns:
+            Dictionary with p50, p90, p99, and mean latencies
+        """
         latencies = []
-        for _ in range(iterations):
+        for kwargs in args_list:
             start = time.time()
-            operation_fn()
+            operation_fn(**kwargs)
             latencies.append((time.time() - start) * 1000)  # Convert to ms
 
         return {
@@ -593,16 +610,14 @@ class GBACLargeTokenTest(GBACScaleTestBase):
                 topics_metadata = producer.list_topics(timeout=10)
                 return len(topics_metadata.topics)
 
-            metadata_stats = self.measure_operation_latency(
+            metadata_stats = self.measure_operation_latency_iterations(
                 metadata_op, iterations=iterations_per_test
             )
 
             # Measure produce latency
             test_topic = random.choice(topics)
-            produce_counter = itertools.count()
 
-            def produce_op():
-                i = next(produce_counter)
+            def produce_op(i: int):
                 producer.produce(
                     test_topic["name"],
                     key=f"key-{i}",
@@ -611,7 +626,8 @@ class GBACLargeTokenTest(GBACScaleTestBase):
                 producer.flush(timeout=10)
 
             produce_stats = self.measure_operation_latency(
-                produce_op, iterations=iterations_per_test
+                produce_op,
+                [{"i": i} for i in range(iterations_per_test)],
             )
 
             # Get IdP query count
