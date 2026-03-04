@@ -88,6 +88,7 @@ class TopicSwarm:
             bootstrap_servers=self.brokers,
             request_timeout_ms=30000,
             api_version_auto_timeout_ms=3000,
+            security_protocol='SASL_PLAINTEXT' if self.creds else 'PLAINTEXT',
             sasl_mechanism=self.creds.mechanism if self.creds else None,
             sasl_plain_username=self.creds.username if self.creds else None,
             sasl_plain_password=self.creds.password if self.creds else None,
