@@ -694,3 +694,143 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
         self.wait_until_produce_succeeds(
             producer, allowed_topic, "Produce should succeed.",
         )
+
+
+class GbacNestedGroupTest(StubOIDCTestBase):
+    """Tests for nested_group_behavior config (none vs suffix modes)."""
+
+    @cluster(num_nodes=4)
+    def test_none_mode_full_path_match(self):
+        """GBAC-NEST-NONE-010: nested_group_behavior=none, token group 'a/b/c',
+        ACL on Group:a/b/c — full path matches exactly, produce succeeds."""
+        self.redpanda.set_cluster_config({"nested_group_behavior": "none"})
+
+        client_id = "nest-none-010"
+        self.stub_idp.register_client(client_id, claims={
+            "sub": "nest-none-010-user",
+            "groups": ["a/b/c"],
+        })
+
+        resp = self.resolve_oidc_identity(client_id)
+        assert list(resp.groups) == ["a/b/c"]
+
+        topic = "nest-none-010-topic"
+        self.rpk.create_topic(topic)
+        self.rpk.sasl_allow_principal(
+            "Group:a/b/c", ["all"], "topic", topic,
+            self.su_username, self.su_password, self.su_algorithm,
+        )
+
+        producer = self.make_producer(client_id)
+        self.wait_until_produce_succeeds(
+            producer, topic,
+            "Full path group 'a/b/c' should match ACL on Group:a/b/c in none mode",
+        )
+
+    @cluster(num_nodes=4)
+    def test_none_mode_suffix_no_match(self):
+        """GBAC-NEST-NONE-020: nested_group_behavior=none, token group 'a/b/c',
+        ACL on Group:c — suffix alone does not match, produce denied."""
+        self.redpanda.set_cluster_config({"nested_group_behavior": "none"})
+
+        client_id = "nest-none-020"
+        self.stub_idp.register_client(client_id, claims={
+            "sub": "nest-none-020-user",
+            "groups": ["a/b/c"],
+        })
+
+        resp = self.resolve_oidc_identity(client_id)
+        assert list(resp.groups) == ["a/b/c"]
+
+        topic = "nest-none-020-topic"
+        self.rpk.create_topic(topic)
+        self.rpk.sasl_allow_principal(
+            "Group:c", ["all"], "topic", topic,
+            self.su_username, self.su_password, self.su_algorithm,
+        )
+
+        producer = self.make_producer(client_id)
+        self.assert_produce_denied(producer, topic)
+
+    @cluster(num_nodes=4)
+    def test_suffix_mode_extracts_last_segment(self):
+        """GBAC-NEST-SFX-010: nested_group_behavior=suffix, token group 'a/b/c',
+        ACL on Group:c — last segment 'c' is extracted, produce succeeds."""
+        self.redpanda.set_cluster_config({"nested_group_behavior": "suffix"})
+
+        client_id = "nest-sfx-010"
+        self.stub_idp.register_client(client_id, claims={
+            "sub": "nest-sfx-010-user",
+            "groups": ["a/b/c"],
+        })
+
+        resp = self.resolve_oidc_identity(client_id)
+        assert list(resp.groups) == ["c"]
+
+        topic = "nest-sfx-010-topic"
+        self.rpk.create_topic(topic)
+        self.rpk.sasl_allow_principal(
+            "Group:c", ["all"], "topic", topic,
+            self.su_username, self.su_password, self.su_algorithm,
+        )
+
+        producer = self.make_producer(client_id)
+        self.wait_until_produce_succeeds(
+            producer, topic,
+            "Suffix mode should extract last segment 'c' from 'a/b/c' and grant access",
+        )
+
+    @cluster(num_nodes=4)
+    def test_suffix_mode_trailing_slash(self):
+        """GBAC-NEST-SFX-020: nested_group_behavior=suffix, token group 'a/b/',
+        ACL on Group:b — trailing slash yields empty last segment, produce denied."""
+        self.redpanda.set_cluster_config({"nested_group_behavior": "suffix"})
+
+        client_id = "nest-sfx-020"
+        self.stub_idp.register_client(client_id, claims={
+            "sub": "nest-sfx-020-user",
+            "groups": ["a/b/"],
+        })
+
+        resp = self.resolve_oidc_identity(client_id)
+        assert list(resp.groups) == [""]
+
+        topic = "nest-sfx-020-topic"
+        self.rpk.create_topic(topic)
+        self.rpk.sasl_allow_principal(
+            "Group:b", ["all"], "topic", topic,
+            self.su_username, self.su_password, self.su_algorithm,
+        )
+
+        producer = self.make_producer(client_id)
+        self.assert_produce_denied(producer, topic)
+
+    @cluster(num_nodes=4)
+    def test_suffix_mode_collision(self):
+        """GBAC-NEST-SFX-030: nested_group_behavior=suffix, token groups
+        ['deptA/admin', 'deptB/admin'], ACL on Group:admin — both paths
+        collapse to 'admin', producing duplicate group entries ['admin',
+        'admin']. Produce succeeds."""
+        self.redpanda.set_cluster_config({"nested_group_behavior": "suffix"})
+
+        client_id = "nest-sfx-030"
+        self.stub_idp.register_client(client_id, claims={
+            "sub": "nest-sfx-030-user",
+            "groups": ["deptA/admin", "deptB/admin"],
+        })
+
+        resp = self.resolve_oidc_identity(client_id)
+        assert list(resp.groups) == ["admin", "admin"]
+
+        topic = "nest-sfx-030-topic"
+        self.rpk.create_topic(topic)
+        self.rpk.sasl_allow_principal(
+            "Group:admin", ["all"], "topic", topic,
+            self.su_username, self.su_password, self.su_algorithm,
+        )
+
+        producer = self.make_producer(client_id)
+        self.wait_until_produce_succeeds(
+            producer, topic,
+            "Suffix 'admin' from both 'deptA/admin' and 'deptB/admin' should grant access",
+        )
