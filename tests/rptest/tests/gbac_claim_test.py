@@ -130,8 +130,7 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_json_array_groups(self):
-        """Groups as JSON array ['eng', 'fin'] — each element becomes a
-        group for GBAC matching."""
+        """Groups as JSON array. Each element becomes a group."""
         client_id = "array-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "array-user",
@@ -155,8 +154,7 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_csv_groups(self):
-        """Groups as CSV string 'eng,fin' — split into individual groups
-        'eng' and 'fin'."""
+        """Groups as CSV string. Split into individual groups."""
         client_id = "csv-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "csv-user",
@@ -180,8 +178,8 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_csv_groups_with_whitespace(self):
-        """CSV string with whitespace 'eng , fin' — whitespace is trimmed
-        so groups resolve to 'eng' and 'fin'."""
+        """CSV string with whitespace around entries. Whitespace is
+        trimmed."""
         client_id = "csv-ws-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "csv-ws-user",
@@ -205,8 +203,8 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_csv_groups_with_empty_entries(self):
-        """CSV string with empty entries 'eng,,,fin' — empty entries resolve
-        to empty group strings, but valid groups are still matched by GBAC."""
+        """CSV string with consecutive commas. Empty entries produce empty
+        group strings, but valid groups still match."""
         client_id = "csv-empty-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "csv-empty-user",
@@ -231,7 +229,7 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_empty_array_groups(self):
-        """Empty group array [] — no access granted."""
+        """Empty group array. No groups extracted."""
         client_id = "empty-array-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "empty-user",
@@ -278,7 +276,7 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_groups_as_objects(self):
-        """Groups as objects [{name:x}] — should be rejected."""
+        """Groups as array of objects. Entire group claim discarded."""
         client_id = "obj-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "obj-user",
@@ -286,7 +284,7 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
         })
 
         resp = self.resolve_oidc_identity(client_id)
-        assert "eng" not in resp.groups
+        assert len(resp.groups) == 0
 
         topic = "obj-topic"
         self.rpk.create_topic(topic)
@@ -304,7 +302,7 @@ class GbacGroupClaimPathTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_nested_claim_path(self):
-        """Nested path $.realm_access.groups."""
+        """Nested claim path set. Groups extracted successfully."""
         self.redpanda.set_cluster_config({
             "oidc_group_claim_path": "$.realm_access.groups",
         })
@@ -332,7 +330,7 @@ class GbacGroupClaimPathTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_claim_path_missing(self):
-        """Claim path missing — no groups, access denied."""
+        """Claim path missing from token. No groups extracted."""
         client_id = "no-groups-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "no-groups-user",
@@ -357,7 +355,8 @@ class GbacMalformedGroupClaimTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_arbitrary_string(self):
-        """Groups as arbitrary string 'eng;fin'"""
+        """Groups as non-CSV string with semicolon. Treated as single
+        literal group, not split."""
         client_id = "arb-str-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "arb-str-user",
@@ -390,7 +389,7 @@ class GbacMalformedGroupClaimTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_groups_as_number(self):
-        """Groups claim is a number — fail safe."""
+        """Groups claim is a number. No groups extracted."""
         client_id = "num-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "num-user",
@@ -412,7 +411,7 @@ class GbacMalformedGroupClaimTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_groups_as_object(self):
-        """Groups claim is an object — fail safe."""
+        """Groups claim is an object. No groups extracted."""
         client_id = "obj-bad-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "obj-bad-user",
@@ -434,7 +433,8 @@ class GbacMalformedGroupClaimTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_mixed_type_array(self):
-        """Mixed-type group array ['eng', 42, null]."""
+        """Mixed-type group array with strings, numbers, and nulls. Entire
+        array rejected."""
         client_id = "mixed-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "mixed-user",
@@ -456,7 +456,8 @@ class GbacMalformedGroupClaimTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_very_large_group_list(self):
-        """Very large group list (1050 groups) — stable parsing."""
+        """Very large group list (1050 groups). Stable parsing, access
+        granted for matching group."""
         groups = [f"g{i}" for i in range(1050)]
         client_id = "large-list-test"
         self.stub_idp.register_client(client_id, claims={
@@ -486,7 +487,7 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_case_mismatch(self):
-        """Case mismatch 'Eng' vs ACL 'eng' — exact match only."""
+        """Case mismatch between token group and ACL. Exact match required."""
         client_id = "case-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "case-user",
@@ -508,7 +509,7 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_unicode_group_name(self):
-        """Unicode group name."""
+        """Unicode group name supported."""
         group = "ingeniería"
         client_id = "unicode-test"
         self.stub_idp.register_client(client_id, claims={
@@ -533,7 +534,7 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_special_characters(self):
-        """Special characters in group name."""
+        """Special characters in group name supported."""
         group = "eng@dev#1"
         client_id = "special-test"
         self.stub_idp.register_client(client_id, claims={
@@ -558,7 +559,8 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_comma_in_group_name_array(self):
-        """Group name with comma in JSON array form."""
+        """Group name with comma in JSON array form. Comma preserved as
+        part of group name."""
         group = "eng,fin"
         client_id = "comma-array-test"
         self.stub_idp.register_client(client_id, claims={
@@ -590,10 +592,9 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_newline_tab_in_group_name(self):
-        """Group names with newline/tab characters — parsed without crashing,
-        but access is always denied because the broker rejects ACL creation
-        for principals containing control characters.
-        """
+        """Group names with newline/tab characters. Parsed without crashing,
+        but access denied because the broker rejects ACL creation for
+        principals containing control characters."""
         nl_group = "eng\nfin"
         tab_group = "admin\tstaff"
         client_id = "ctrl-char-test"
@@ -624,9 +625,8 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_empty_string_group(self):
-        """Empty string group [''] — passed through as-is by Redpanda, but access is always
-        denied because the broker rejects ACL creation for empty principal names with
-        INVALID_REQUEST, so no matching ACL can ever exist."""
+        """Empty string group. Passed through as-is, but access denied
+        because the broker rejects ACL creation for empty principal names."""
         client_id = "empty-str-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "empty-str-user",
@@ -672,7 +672,7 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_duplicate_groups(self):
-        """Duplicate groups ['admin', 'admin'] are not deduplicated."""
+        """Duplicate groups in array are not deduplicated."""
         client_id = "dup-test"
         groups = ["admin", "admin"]
         self.stub_idp.register_client(client_id, claims={
@@ -701,8 +701,7 @@ class GbacNestedGroupTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_none_mode_full_path_match(self):
-        """GBAC-NEST-NONE-010: nested_group_behavior=none, token group 'a/b/c',
-        ACL on Group:a/b/c — full path matches exactly, produce succeeds."""
+        """Nested path with nested_group_behavior set to none. Full path is the literal group name."""
         self.redpanda.set_cluster_config({"nested_group_behavior": "none"})
 
         client_id = "nest-none-010"
@@ -729,8 +728,8 @@ class GbacNestedGroupTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_none_mode_suffix_no_match(self):
-        """GBAC-NEST-NONE-020: nested_group_behavior=none, token group 'a/b/c',
-        ACL on Group:c — suffix alone does not match, produce denied."""
+        """Nested path with nested_group_behavior set to none. ACL on suffix only.
+        Suffix extraction does not happen."""
         self.redpanda.set_cluster_config({"nested_group_behavior": "none"})
 
         client_id = "nest-none-020"
@@ -754,8 +753,7 @@ class GbacNestedGroupTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_suffix_mode_extracts_last_segment(self):
-        """GBAC-NEST-SFX-010: nested_group_behavior=suffix, token group 'a/b/c',
-        ACL on Group:c — last segment 'c' is extracted, produce succeeds."""
+        """Nested path with nested_group_behavior set to suffix. Last segment is extracted."""
         self.redpanda.set_cluster_config({"nested_group_behavior": "suffix"})
 
         client_id = "nest-sfx-010"
@@ -782,8 +780,7 @@ class GbacNestedGroupTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_suffix_mode_trailing_slash(self):
-        """GBAC-NEST-SFX-020: nested_group_behavior=suffix, token group 'a/b/',
-        ACL on Group:b — trailing slash yields empty last segment, produce denied."""
+        """Trailing slash in suffix mode. Last segment is empty."""
         self.redpanda.set_cluster_config({"nested_group_behavior": "suffix"})
 
         client_id = "nest-sfx-020"
@@ -807,10 +804,8 @@ class GbacNestedGroupTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_suffix_mode_collision(self):
-        """GBAC-NEST-SFX-030: nested_group_behavior=suffix, token groups
-        ['deptA/admin', 'deptB/admin'], ACL on Group:admin — both paths
-        collapse to 'admin', producing duplicate group entries ['admin',
-        'admin']. Produce succeeds."""
+        """Multiple nested paths with same suffix in suffix mode. Both
+        collapse to same group (duplicated)."""
         self.redpanda.set_cluster_config({"nested_group_behavior": "suffix"})
 
         client_id = "nest-sfx-030"
