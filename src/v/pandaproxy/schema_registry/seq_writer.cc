@@ -127,7 +127,7 @@ ss::future<> seq_writer::check_mutable(
   const context& ctx, const std::optional<subject>& sub) {
     auto mode = sub ? co_await _store.get_mode(
                         {ctx, *sub}, default_to_global::yes)
-                    : co_await _store.get_mode(ctx);
+                    : co_await _store.get_mode(ctx, default_to_global::yes);
     if (mode == mode::read_only) {
         throw as_exception(mode_is_readonly(ctx, sub));
     }
@@ -411,7 +411,8 @@ ss::future<std::optional<bool>> seq_writer::do_write_mode(
         mode existing = !ctx_sub.is_context_only()
                           ? co_await _store.get_mode(
                               ctx_sub, default_to_global::no)
-                          : co_await _store.get_mode(ctx_sub.ctx);
+                          : co_await _store.get_mode(
+                              ctx_sub.ctx, default_to_global::no);
         if (existing == m) {
             co_return false;
         }
