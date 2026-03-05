@@ -1,9 +1,17 @@
 from confluent_kafka import KafkaError
+from confluent_kafka.error import KafkaException
 from ducktape.utils.util import wait_until
 
 from rptest.clients.admin.proto.redpanda.core.admin.v2 import security_pb2
 from rptest.clients.admin.v2 import Admin as AdminV2
 from rptest.clients.python_librdkafka import PythonLibrdkafka
+from confluent_kafka.admin import (
+    AclBinding,
+    AclOperation,
+    AclPermissionType,
+    ResourcePatternType,
+    ResourceType,
+)
 from rptest.clients.rpk import RpkTool
 from rptest.services.cluster import cluster
 from rptest.services.redpanda import (
@@ -116,17 +124,22 @@ class StubOIDCTestBase(Test):
             extra_headers={"Authorization": f"Bearer {token}"},
         )
 
+
 class GbacGroupClaimFormatTest(StubOIDCTestBase):
     """Tests for various group claim formats in OIDC tokens."""
 
     @cluster(num_nodes=4)
     def test_json_array_groups(self):
-        """Groups as JSON array — smoke test for stub infra."""
+        """Groups as JSON array ['eng', 'fin'] — each element becomes a
+        group for GBAC matching."""
         client_id = "array-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "array-user",
             "groups": ["eng", "fin"],
         })
+
+        resp = self.resolve_oidc_identity(client_id)
+        assert sorted(resp.groups) == ["eng", "fin"]
 
         topic = "array-topic"
         self.rpk.create_topic(topic)
@@ -142,12 +155,16 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_csv_groups(self):
-        """Groups as CSV string 'eng,fin'."""
+        """Groups as CSV string 'eng,fin' — split into individual groups
+        'eng' and 'fin'."""
         client_id = "csv-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "csv-user",
             "groups": "eng,fin",
         })
+
+        resp = self.resolve_oidc_identity(client_id)
+        assert sorted(resp.groups) == ["eng", "fin"]
 
         topic = "csv-topic"
         self.rpk.create_topic(topic)
@@ -163,12 +180,16 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_csv_groups_with_whitespace(self):
-        """CSV string with whitespace 'eng , fin'."""
+        """CSV string with whitespace 'eng , fin' — whitespace is trimmed
+        so groups resolve to 'eng' and 'fin'."""
         client_id = "csv-ws-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "csv-ws-user",
             "groups": "eng , fin",
         })
+
+        resp = self.resolve_oidc_identity(client_id)
+        assert sorted(resp.groups) == ["eng", "fin"]
 
         topic = "csv-ws-topic"
         self.rpk.create_topic(topic)
@@ -184,12 +205,17 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_csv_groups_with_empty_entries(self):
-        """CSV string with empty entries 'eng,,fin'."""
+        """CSV string with empty entries 'eng,,,fin' — empty entries resolve
+        to empty group strings, but valid groups are still matched by GBAC."""
         client_id = "csv-empty-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "csv-empty-user",
-            "groups": "eng,,fin",
+            "groups": "eng,,,fin",
         })
+
+        expected_groups = ["", "", "eng", "fin"]
+        resp = self.resolve_oidc_identity(client_id)
+        assert sorted(resp.groups) == expected_groups
 
         topic = "csv-empty-topic"
         self.rpk.create_topic(topic)
@@ -212,6 +238,9 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
             "groups": [],
         })
 
+        resp = self.resolve_oidc_identity(client_id)
+        assert len(resp.groups) == 0
+
         topic = "empty-topic"
         self.rpk.create_topic(topic)
         self.rpk.sasl_allow_principal(
@@ -231,6 +260,9 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
             "sub": "long-user",
             "groups": [long_group],
         })
+
+        resp = self.resolve_oidc_identity(client_id)
+        assert list(resp.groups) == [long_group]
 
         topic = "long-topic"
         self.rpk.create_topic(topic)
@@ -252,6 +284,9 @@ class GbacGroupClaimFormatTest(StubOIDCTestBase):
             "sub": "obj-user",
             "groups": [{"name": "eng"}],
         })
+
+        resp = self.resolve_oidc_identity(client_id)
+        assert "eng" not in resp.groups
 
         topic = "obj-topic"
         self.rpk.create_topic(topic)
@@ -280,6 +315,9 @@ class GbacGroupClaimPathTest(StubOIDCTestBase):
             "realm_access": {"groups": ["admin"]},
         })
 
+        resp = self.resolve_oidc_identity(client_id)
+        assert list(resp.groups) == ["admin"]
+
         topic = "nested-path-topic"
         self.rpk.create_topic(topic)
         self.rpk.sasl_allow_principal(
@@ -300,48 +338,13 @@ class GbacGroupClaimPathTest(StubOIDCTestBase):
             "sub": "no-groups-user",
         })
 
+        resp = self.resolve_oidc_identity(client_id)
+        assert len(resp.groups) == 0
+
         topic = "no-groups-topic"
         self.rpk.create_topic(topic)
         self.rpk.sasl_allow_principal(
             "Group:eng", ["all"], "topic", topic,
-            self.su_username, self.su_password, self.su_algorithm,
-        )
-
-        producer = self.make_producer(client_id)
-        self.assert_produce_denied(producer, topic)
-
-    @cluster(num_nodes=4)
-    def test_claim_path_resolves_to_object(self):
-        """Claim path resolves to object — fail safe, denied."""
-        client_id = "obj-path-test"
-        self.stub_idp.register_client(client_id, claims={
-            "sub": "obj-path-user",
-            "groups": {"name": "admin"},
-        })
-
-        topic = "obj-path-topic"
-        self.rpk.create_topic(topic)
-        self.rpk.sasl_allow_principal(
-            "Group:admin", ["all"], "topic", topic,
-            self.su_username, self.su_password, self.su_algorithm,
-        )
-
-        producer = self.make_producer(client_id)
-        self.assert_produce_denied(producer, topic)
-
-    @cluster(num_nodes=4)
-    def test_claim_path_resolves_to_number(self):
-        """Claim path resolves to number — fail safe, denied."""
-        client_id = "num-path-test"
-        self.stub_idp.register_client(client_id, claims={
-            "sub": "num-path-user",
-            "groups": 42,
-        })
-
-        topic = "num-path-topic"
-        self.rpk.create_topic(topic)
-        self.rpk.sasl_allow_principal(
-            "Group:42", ["all"], "topic", topic,
             self.su_username, self.su_password, self.su_algorithm,
         )
 
@@ -354,12 +357,16 @@ class GbacMalformedGroupClaimTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_arbitrary_string(self):
-        """Groups as arbitrary string 'eng;fin' — fail safe."""
+        """Groups as arbitrary string 'eng;fin'"""
         client_id = "arb-str-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "arb-str-user",
             "groups": "eng;fin",
         })
+
+        # Not CSV (no comma), so treated as single group "eng;fin".
+        resp = self.resolve_oidc_identity(client_id)
+        assert "eng" not in resp.groups
 
         topic = "arb-str-topic"
         self.rpk.create_topic(topic)
@@ -371,6 +378,16 @@ class GbacMalformedGroupClaimTest(StubOIDCTestBase):
         producer = self.make_producer(client_id)
         self.assert_produce_denied(producer, topic)
 
+        topic = "arb-str-topic2"
+        self.rpk.create_topic(topic)
+        self.rpk.sasl_allow_principal(
+            "Group:eng;fin", ["all"], "topic", topic,
+            self.su_username, self.su_password, self.su_algorithm,
+        )
+        self.wait_until_produce_succeeds(
+            producer, topic, "Group name with semicolon should match literally",
+        )
+
     @cluster(num_nodes=4)
     def test_groups_as_number(self):
         """Groups claim is a number — fail safe."""
@@ -379,6 +396,9 @@ class GbacMalformedGroupClaimTest(StubOIDCTestBase):
             "sub": "num-user",
             "groups": 42,
         })
+
+        resp = self.resolve_oidc_identity(client_id)
+        assert len(resp.groups) == 0
 
         topic = "num-topic"
         self.rpk.create_topic(topic)
@@ -399,6 +419,9 @@ class GbacMalformedGroupClaimTest(StubOIDCTestBase):
             "groups": {"key": "val"},
         })
 
+        resp = self.resolve_oidc_identity(client_id)
+        assert len(resp.groups) == 0
+
         topic = "obj-bad-topic"
         self.rpk.create_topic(topic)
         self.rpk.sasl_allow_principal(
@@ -418,6 +441,9 @@ class GbacMalformedGroupClaimTest(StubOIDCTestBase):
             "groups": ["eng", 42, None],
         })
 
+        resp = self.resolve_oidc_identity(client_id)
+        assert len(resp.groups) == 0
+
         topic = "mixed-topic"
         self.rpk.create_topic(topic)
         self.rpk.sasl_allow_principal(
@@ -425,15 +451,8 @@ class GbacMalformedGroupClaimTest(StubOIDCTestBase):
             self.su_username, self.su_password, self.su_algorithm,
         )
 
-        # Either valid strings are extracted or the entire claim is rejected.
-        # Produce to verify the broker handles it without crashing.
         producer = self.make_producer(client_id)
-        errors: list[KafkaError | None] = []
-        producer.produce(
-            topic, b"test", on_delivery=lambda err, _msg: errors.append(err),
-        )
-        producer.flush(timeout=10)
-        assert len(errors) > 0, "Expected delivery callback but got none"
+        self.assert_produce_denied(producer, topic)
 
     @cluster(num_nodes=4)
     def test_very_large_group_list(self):
@@ -444,6 +463,10 @@ class GbacMalformedGroupClaimTest(StubOIDCTestBase):
             "sub": "large-user",
             "groups": groups,
         })
+
+        resp = self.resolve_oidc_identity(client_id)
+        assert len(resp.groups) == 1050
+        assert "g500" in resp.groups
 
         topic = "large-topic"
         self.rpk.create_topic(topic)
@@ -470,6 +493,9 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
             "groups": ["Eng"],
         })
 
+        resp = self.resolve_oidc_identity(client_id)
+        assert list(resp.groups) == ["Eng"]
+
         topic = "case-topic"
         self.rpk.create_topic(topic)
         self.rpk.sasl_allow_principal(
@@ -489,6 +515,9 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
             "sub": "unicode-user",
             "groups": [group],
         })
+
+        resp = self.resolve_oidc_identity(client_id)
+        assert list(resp.groups) == [group]
 
         topic = "unicode-topic"
         self.rpk.create_topic(topic)
@@ -512,6 +541,9 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
             "groups": [group],
         })
 
+        resp = self.resolve_oidc_identity(client_id)
+        assert list(resp.groups) == [group]
+
         topic = "special-topic"
         self.rpk.create_topic(topic)
         self.rpk.sasl_allow_principal(
@@ -534,6 +566,9 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
             "groups": [group],
         })
 
+        resp = self.resolve_oidc_identity(client_id)
+        assert list(resp.groups) == [group]
+
         topic = "comma-array-topic"
         self.rpk.create_topic(topic)
         # rpk's --allow-principal flag treats commas as delimiters between
@@ -555,31 +590,28 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_newline_tab_in_group_name(self):
-        """Group names with newline/tab characters — handled gracefully.
-
-        The broker rejects ACL creation for principal names containing
-        control characters (newline, tab), so no matching ACL can exist.
-        Use the Admin API v2 ResolveOidcIdentity RPC to verify the broker
-        parses these group names without crashing, then confirm access is
-        denied since no ACL can match.
+        """Group names with newline/tab characters — parsed without crashing,
+        but access is always denied because the broker rejects ACL creation
+        for principals containing control characters.
         """
         nl_group = "eng\nfin"
         tab_group = "admin\tstaff"
         client_id = "ctrl-char-test"
+        groups = [nl_group, tab_group]
         self.stub_idp.register_client(client_id, claims={
             "sub": "ctrl-char-user",
-            "groups": [nl_group, tab_group],
+            "groups": groups,
         })
 
-        # Verify the broker resolves the OIDC identity without crashing
-        # and that the control-character group names are present.
         resp = self.resolve_oidc_identity(client_id)
-        assert set(resp.groups) == {nl_group, tab_group}, (
-            f"Expected groups {[nl_group, tab_group]}, got {list(resp.groups)}"
+        assert sorted(resp.groups) == sorted(groups), (
+            f"Expected groups {groups}, got {list(resp.groups)}"
         )
 
-        # Since rpk cannot create ACLs with control characters in the
-        # principal name, no matching ACL can exist. Verify access denied.
+        # The broker rejects ACL creation for principals with control characters,
+        # so no matching ACL can exist and access is denied. Instead, create an
+        # ACL for the literal group name to verify it doesn't match the control chars
+        # and grant access.
         topic = "ctrl-char-topic"
         self.rpk.create_topic(topic)
         self.rpk.sasl_allow_principal(
@@ -592,40 +624,73 @@ class GbacGroupNameEdgeCaseTest(StubOIDCTestBase):
 
     @cluster(num_nodes=4)
     def test_empty_string_group(self):
-        """Empty string group [''] — ignored or denied."""
+        """Empty string group [''] — passed through as-is by Redpanda, but access is always
+        denied because the broker rejects ACL creation for empty principal names with
+        INVALID_REQUEST, so no matching ACL can ever exist."""
         client_id = "empty-str-test"
         self.stub_idp.register_client(client_id, claims={
             "sub": "empty-str-user",
             "groups": [""],
         })
 
+        resp = self.resolve_oidc_identity(client_id)
+        assert resp.groups == [""]
+
         topic = "empty-str-topic"
         self.rpk.create_topic(topic)
-        self.rpk.sasl_allow_principal(
-            "Group:eng", ["all"], "topic", topic,
-            self.su_username, self.su_password, self.su_algorithm,
-        )
 
+        # Use the Kafka API directly to verify the broker rejects an ACL with
+        # an empty principal name. Using Kafka API instead of rpk because rpk
+        # silently exits 0 for this case, but the Kafka protocol returns INVALID_REQUEST.
+        su_client = PythonLibrdkafka(
+            self.redpanda,
+            username=self.su_username,
+            password=self.su_password,
+            algorithm=self.su_algorithm,
+        )
+        admin = su_client.get_client()
+        binding = AclBinding(
+            restype=ResourceType.TOPIC,
+            name=topic,
+            resource_pattern_type=ResourcePatternType.LITERAL,
+            principal="Group:",
+            host="*",
+            operation=AclOperation.ALL,
+            permission_type=AclPermissionType.ALLOW,
+        )
+        results = admin.create_acls([binding])
+        for _, fut in results.items():
+            try:
+                fut.result()
+                assert False, "Expected KafkaException for empty principal name"
+            except KafkaException as e:
+                assert "INVALID_REQUEST" in str(e)
+
+        # No ACL was created, so produce is denied.
         producer = self.make_producer(client_id)
         self.assert_produce_denied(producer, topic)
 
     @cluster(num_nodes=4)
     def test_duplicate_groups(self):
-        """Duplicate groups ['admin', 'admin'] — deduplicated."""
+        """Duplicate groups ['admin', 'admin'] are not deduplicated."""
         client_id = "dup-test"
+        groups = ["admin", "admin"]
         self.stub_idp.register_client(client_id, claims={
             "sub": "dup-user",
-            "groups": ["admin", "admin"],
+            "groups": groups,
         })
 
-        topic = "dup-topic"
-        self.rpk.create_topic(topic)
+        resp = self.resolve_oidc_identity(client_id)
+        assert list(resp.groups) == groups
+
+        allowed_topic = "allowed-topic"
+        self.rpk.create_topic(allowed_topic)
         self.rpk.sasl_allow_principal(
-            "Group:admin", ["all"], "topic", topic,
+            "Group:admin", ["all"], "topic", allowed_topic,
             self.su_username, self.su_password, self.su_algorithm,
         )
 
         producer = self.make_producer(client_id)
         self.wait_until_produce_succeeds(
-            producer, topic, "Duplicate groups should be deduplicated and grant access",
+            producer, allowed_topic, "Produce should succeed.",
         )
