@@ -704,16 +704,16 @@ class GbacNestedGroupTest(StubOIDCTestBase):
         """Nested path with nested_group_behavior set to none. Full path is the literal group name."""
         self.redpanda.set_cluster_config({"nested_group_behavior": "none"})
 
-        client_id = "nest-none-010"
+        client_id = "none-full-path-test"
         self.stub_idp.register_client(client_id, claims={
-            "sub": "nest-none-010-user",
+            "sub": "none-full-path-user",
             "groups": ["a/b/c"],
         })
 
         resp = self.resolve_oidc_identity(client_id)
         assert list(resp.groups) == ["a/b/c"]
 
-        topic = "nest-none-010-topic"
+        topic = "none-full-path-topic"
         self.rpk.create_topic(topic)
         self.rpk.sasl_allow_principal(
             "Group:a/b/c", ["all"], "topic", topic,
@@ -732,16 +732,16 @@ class GbacNestedGroupTest(StubOIDCTestBase):
         Suffix extraction does not happen."""
         self.redpanda.set_cluster_config({"nested_group_behavior": "none"})
 
-        client_id = "nest-none-020"
+        client_id = "none-suffix-test"
         self.stub_idp.register_client(client_id, claims={
-            "sub": "nest-none-020-user",
+            "sub": "none-suffix-user",
             "groups": ["a/b/c"],
         })
 
         resp = self.resolve_oidc_identity(client_id)
         assert list(resp.groups) == ["a/b/c"]
 
-        topic = "nest-none-020-topic"
+        topic = "none-suffix-topic"
         self.rpk.create_topic(topic)
         self.rpk.sasl_allow_principal(
             "Group:c", ["all"], "topic", topic,
@@ -756,16 +756,16 @@ class GbacNestedGroupTest(StubOIDCTestBase):
         """Nested path with nested_group_behavior set to suffix. Last segment is extracted."""
         self.redpanda.set_cluster_config({"nested_group_behavior": "suffix"})
 
-        client_id = "nest-sfx-010"
+        client_id = "sfx-extract-test"
         self.stub_idp.register_client(client_id, claims={
-            "sub": "nest-sfx-010-user",
+            "sub": "sfx-extract-user",
             "groups": ["a/b/c"],
         })
 
         resp = self.resolve_oidc_identity(client_id)
         assert list(resp.groups) == ["c"]
 
-        topic = "nest-sfx-010-topic"
+        topic = "sfx-extract-topic"
         self.rpk.create_topic(topic)
         self.rpk.sasl_allow_principal(
             "Group:c", ["all"], "topic", topic,
@@ -783,16 +783,16 @@ class GbacNestedGroupTest(StubOIDCTestBase):
         """Trailing slash in suffix mode. Last segment is empty."""
         self.redpanda.set_cluster_config({"nested_group_behavior": "suffix"})
 
-        client_id = "nest-sfx-020"
+        client_id = "sfx-trailing-test"
         self.stub_idp.register_client(client_id, claims={
-            "sub": "nest-sfx-020-user",
+            "sub": "sfx-trailing-user",
             "groups": ["a/b/"],
         })
 
         resp = self.resolve_oidc_identity(client_id)
         assert list(resp.groups) == [""]
 
-        topic = "nest-sfx-020-topic"
+        topic = "sfx-trailing-topic"
         self.rpk.create_topic(topic)
         self.rpk.sasl_allow_principal(
             "Group:b", ["all"], "topic", topic,
@@ -808,16 +808,16 @@ class GbacNestedGroupTest(StubOIDCTestBase):
         collapse to same group (duplicated)."""
         self.redpanda.set_cluster_config({"nested_group_behavior": "suffix"})
 
-        client_id = "nest-sfx-030"
+        client_id = "sfx-collide-test"
         self.stub_idp.register_client(client_id, claims={
-            "sub": "nest-sfx-030-user",
+            "sub": "sfx-collide-user",
             "groups": ["deptA/admin", "deptB/admin"],
         })
 
         resp = self.resolve_oidc_identity(client_id)
         assert list(resp.groups) == ["admin", "admin"]
 
-        topic = "nest-sfx-030-topic"
+        topic = "sfx-collide-topic"
         self.rpk.create_topic(topic)
         self.rpk.sasl_allow_principal(
             "Group:admin", ["all"], "topic", topic,
@@ -829,3 +829,138 @@ class GbacNestedGroupTest(StubOIDCTestBase):
             producer, topic,
             "Suffix 'admin' from both 'deptA/admin' and 'deptB/admin' should grant access",
         )
+
+
+class GbacMultiGroupTest(StubOIDCTestBase):
+    """Tests for multiple group membership and ACL union behavior."""
+
+    @cluster(num_nodes=4)
+    def test_union_of_group_permissions(self):
+        """Two groups with ACLs on different topics. Union of permissions
+        grants access to both."""
+        client_id = "union-test"
+        self.stub_idp.register_client(client_id, claims={
+            "sub": "union-user",
+            "groups": ["eng", "fin"],
+        })
+
+        resp = self.resolve_oidc_identity(client_id)
+        assert sorted(resp.groups) == ["eng", "fin"]
+
+        topic_eng = "union-eng-topic"
+        self.rpk.create_topic(topic_eng)
+        self.rpk.sasl_allow_principal(
+            "Group:eng", ["all"], "topic", topic_eng,
+            self.su_username, self.su_password, self.su_algorithm,
+        )
+
+        topic_fin = "union-fin-topic"
+        self.rpk.create_topic(topic_fin)
+        self.rpk.sasl_allow_principal(
+            "Group:fin", ["all"], "topic", topic_fin,
+            self.su_username, self.su_password, self.su_algorithm,
+        )
+
+        producer = self.make_producer(client_id)
+        self.wait_until_produce_succeeds(
+            producer, topic_eng,
+            "eng group ACL should grant access to eng topic",
+        )
+        self.wait_until_produce_succeeds(
+            producer, topic_fin,
+            "fin group ACL should grant access to fin topic",
+        )
+
+    @cluster(num_nodes=4)
+    def test_one_matching_group_grants_access(self):
+        """Two groups, only one has an ACL. One matching group is sufficient
+        for access."""
+        client_id = "one-match-test"
+        self.stub_idp.register_client(client_id, claims={
+            "sub": "one-match-user",
+            "groups": ["eng", "noacl"],
+        })
+
+        resp = self.resolve_oidc_identity(client_id)
+        assert sorted(resp.groups) == ["eng", "noacl"]
+
+        topic = "one-match-topic"
+        self.rpk.create_topic(topic)
+        self.rpk.sasl_allow_principal(
+            "Group:eng", ["all"], "topic", topic,
+            self.su_username, self.su_password, self.su_algorithm,
+        )
+
+        producer = self.make_producer(client_id)
+        self.wait_until_produce_succeeds(
+            producer, topic,
+            "One matching group should be sufficient for access",
+        )
+
+    @cluster(num_nodes=4)
+    def test_group_without_acl_no_access(self):
+        """Group with no matching ACL. Access denied."""
+        client_id = "no-acl-test"
+        self.stub_idp.register_client(client_id, claims={
+            "sub": "no-acl-user",
+            "groups": ["noacl"],
+        })
+
+        resp = self.resolve_oidc_identity(client_id)
+        assert list(resp.groups) == ["noacl"]
+
+        topic = "no-acl-topic"
+        self.rpk.create_topic(topic)
+        self.rpk.sasl_allow_principal(
+            "Group:eng", ["all"], "topic", topic,
+            self.su_username, self.su_password, self.su_algorithm,
+        )
+
+        producer = self.make_producer(client_id)
+        self.assert_produce_denied(producer, topic)
+
+    @cluster(num_nodes=4)
+    def test_wildcard_group_acl_rejected(self):
+        """Wildcard Group:* ACL creation. Rejected by broker, only User:*
+        wildcards are allowed."""
+        client_id = "wildcard-test"
+        self.stub_idp.register_client(client_id, claims={
+            "sub": "wildcard-user",
+            "groups": ["eng"],
+        })
+
+        resp = self.resolve_oidc_identity(client_id)
+        assert list(resp.groups) == ["eng"]
+
+        topic = "wildcard-topic"
+        self.rpk.create_topic(topic)
+
+        # Use the Kafka admin API directly to verify the broker rejects
+        # Group:* ACL creation. rpk does not surface this error clearly.
+        su_client = PythonLibrdkafka(
+            self.redpanda,
+            username=self.su_username,
+            password=self.su_password,
+            algorithm=self.su_algorithm,
+        )
+        admin = su_client.get_client()
+        binding = AclBinding(
+            restype=ResourceType.TOPIC,
+            name=topic,
+            resource_pattern_type=ResourcePatternType.LITERAL,
+            principal="Group:*",
+            host="*",
+            operation=AclOperation.ALL,
+            permission_type=AclPermissionType.ALLOW,
+        )
+        results = admin.create_acls([binding])
+        for _, fut in results.items():
+            try:
+                fut.result()
+                assert False, "Expected KafkaException for wildcard Group:*"
+            except KafkaException as e:
+                assert "INVALID_REQUEST" in str(e)
+
+        # No ACL was created, so produce is denied.
+        producer = self.make_producer(client_id)
+        self.assert_produce_denied(producer, topic)
