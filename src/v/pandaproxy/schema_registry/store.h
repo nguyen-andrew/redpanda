@@ -668,8 +668,16 @@ public:
     get_context_mode_written_at(const context& ctx) const {
         auto it = _context_stores.find(ctx);
         if (it == _context_stores.end()) {
-            return chunked_vector<seq_marker>{};
+            return not_found({ctx, subject{""}});
         }
+
+        // This should never happen (how can a record get into the
+        // store without an originating sequenced record?), but return
+        // an error instead of vasserting out.
+        if (it->second._mode_written_at.empty()) {
+            return not_found({ctx, subject{""}});
+        }
+
         return it->second._mode_written_at.copy();
     }
 
@@ -748,8 +756,16 @@ public:
     get_context_config_written_at(const context& ctx) const {
         auto it = _context_stores.find(ctx);
         if (it == _context_stores.end()) {
-            return chunked_vector<seq_marker>{};
+            return not_found({ctx, subject{""}});
         }
+
+        // This should never happen (how can a record get into the
+        // store without an originating sequenced record?), but return
+        // an error instead of vasserting out.
+        if (it->second._config_written_at.empty()) {
+            return not_found({ctx, subject{""}});
+        }
+
         return it->second._config_written_at.copy();
     }
 
