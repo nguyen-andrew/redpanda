@@ -39,7 +39,7 @@ from rptest.services.redpanda import (
 )
 from rptest.tests.group_membership_test import GroupCoordinatorTransferUtils
 from rptest.tests.redpanda_test import RedpandaTest
-from rptest.util import search_logs_with_timeout
+from rptest.util import expect_exception, search_logs_with_timeout
 from rptest.utils.mode_checks import in_fips_environment, skip_debug_mode
 from rptest.utils.utf8 import CONTROL_CHARS_MAP
 
@@ -1808,6 +1808,65 @@ class PandaProxyBasicAuthTest(PandaProxyEndpoints):
         self._test_http_proxy_restart(
             topic_name=self.topic, auth_tuple=(super_username, super_password)
         )
+
+    @cluster(num_nodes=3)
+    def test_authz_denied_request_hangs(self):
+        """
+        Illustrates current behavior when an authenticated user is denied
+        authorization to a topic (e.g. implicit deny from missing ALLOW
+        ACLs, or an explicit DENY ACL) and attempts to produce and fetch
+        via Pandaproxy: the HTTP request hangs rather than returning an
+        error.
+
+        CORE-15764: Pandaproxy's internal Kafka client retries
+        topic_authorization_failed instead of propagating it. Whether
+        this is the desired behavior or a bug that needs fixing requires
+        further investigation/discussion.
+        """
+        self.topics = [TopicSpec(partition_count=3)]
+        self._create_initial_topics()
+
+        super_username, super_password, _ = self.redpanda.SUPERUSER_CREDENTIALS
+        rpk = RpkTool(self.redpanda)
+
+        # Create the user so authentication succeeds, but grant no ACLs
+        rpk.sasl_create_user(self.username, self.password, "SCRAM-SHA-256")
+
+        data = """
+        {
+            "records": [
+                {"value": "dmVjdG9yaXplZA==", "partition": 0},
+                {"value": "cGFuZGFwcm94eQ==", "partition": 1},
+                {"value": "bXVsdGlicm9rZXI=", "partition": 2}
+            ]
+        }"""
+
+        # Produce as superuser to confirm the topic is working
+        result_raw = self._produce_topic(
+            self.topic, data, auth=(super_username, super_password)
+        )
+        assert result_raw.status_code == requests.codes.ok
+
+        # Produce as user with no ACLs — hangs due to CORE-15764
+        self.logger.info(f"Producing to {self.topic} as {self.username}")
+        with expect_exception(requests.exceptions.ReadTimeout,
+                              lambda _: True):
+            self._produce_topic(
+                self.topic,
+                data,
+                auth=(self.username, self.password),
+                timeout=5,
+            )
+
+        # Fetch as user with no ACLs — same hang behavior
+        self.logger.info(f"Fetching from {self.topic} as {self.username}")
+        with expect_exception(requests.exceptions.ReadTimeout,
+                              lambda _: True):
+            self._fetch_topic(
+                self.topic,
+                auth=(self.username, self.password),
+                timeout=5,
+            )
 
 
 class PandaProxyClientStopTest(PandaProxyEndpoints):
