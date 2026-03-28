@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  keycloak:
+    container_name: keycloak
+    image: quay.io/keycloak/keycloak:26.4.7
+    ports:
+      - "8088:8080"
+    environment:
+    # See all configuration options (archive for 23.0):
+    # https://www.keycloak.org/server/all-config
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+
+      - KC_HOSTNAME=http://rpdev2:8088
+      # - KC_HOSTNAME_PORT=8088
+      - KC_HTTP_ENABLED=true
+      # - KC_PROXY=passthrough
+      - KC_LOG=console
+      - KC_LOG_LEVEL=info
+    command: start-dev
+    restart: unless-stopped

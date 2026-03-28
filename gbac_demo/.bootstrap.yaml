@@ -1,0 +1,46 @@
+# =============================================================
+# ===================== FOR GBAC TOI DEMO =====================
+# =============================================================
+
+# List of superuser usernames.
+superusers:
+  - "admin"
+
+# Enable SASL authentication for Kafka connections. Authorization is required to modify this property. See also `kafka_enable_authorization`. (e.g. 'true')
+enable_sasl: true
+
+# Enable ACL-based authorization for Schema Registry requests. When true, uses ACL-based authorization instead of the default public/user/superuser authorization model. When false, uses the default authorization model. Requires authentication to be enabled via schema_registry_api.authn_method. (e.g. 'true')
+schema_registry_enable_authorization: true
+
+# A list of supported SASL mechanisms, if no override is defined in `sasl_mechanisms_overrides` for each Kafka listener. Accepted values: `SCRAM`, `GSSAPI`, `OAUTHBEARER`, `PLAIN`.  Note that in order to enable PLAIN, you must also enable SCRAM.
+sasl_mechanisms:
+    - SCRAM
+    - OAUTHBEARER
+
+# The URL pointing to the well-known discovery endpoint for the OIDC provider.
+oidc_discovery_url: http://rpdev2:8088/realms/redpanda/.well-known/openid-configuration
+
+# # A string representing the intended recipient of the token.
+oidc_token_audience: account
+
+# # Rule for mapping JWT payload claim to a Redpanda user principal.
+oidc_principal_mapping: $.client_id
+
+# A list of supported HTTP authentication mechanisms. Accepted Values: `BASIC`, `OIDC`
+http_authentication:
+    - BASIC
+    - OIDC
+
+# Allow auto-creation of topics on produce if they don't already exist. (e.g. 'true')
+auto_create_topics_enabled: true
+
+# data_transforms_enabled: true
+
+# Enable audit logging
+audit_enabled: true
+audit_enabled_event_types:
+  - produce
+  - authenticate
+
+# Require authentication for Admin API requests.
+admin_api_require_auth: true

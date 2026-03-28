@@ -1,0 +1,50 @@
+redpanda:
+  admin:
+    address: 0.0.0.0
+    port: 9644
+    authentication_method: http_basic
+  advertised_rpc_api:
+    address: rpdev2
+    port: 33145
+  data_directory: !Path '~/workspace/redpanda/gbac_demo/data'
+  kafka_api:
+    - address: 0.0.0.0
+      port: 9092
+      authentication_method: sasl
+  advertised_kafka_api:
+    - address: rpdev2
+      port: 9092
+  rpc_server:
+    address: 0.0.0.0
+    port: 33145
+  seed_servers: []
+
+# Optional — needed if demoing pandaproxy or schema registry OIDC.
+# These services won't start without at least a minimal section here.
+pandaproxy:
+  pandaproxy_api:
+    - address: 0.0.0.0
+      port: 8082
+      authentication_method: http_basic
+
+schema_registry:
+  schema_registry_api:
+    - address: 0.0.0.0
+      port: 8081
+      authentication_method: http_basic
+
+rpk:
+  additional_start_flags:
+    - "--default-log-level=info"
+    - '--logger-log-level=security=debug:kafka=info'
+
+# --- Runtime cluster config (set after startup via rpk/admin API) ---
+#
+# Required for demo:
+#   rpk cluster config set sasl_mechanisms '["SCRAM","OAUTHBEARER"]'
+#   rpk cluster config set oidc_discovery_url 'https://<keycloak-host>/realms/demorealm/.well-known/openid-configuration'
+#   rpk cluster config set oidc_token_audience 'account'
+#
+# Optional — enable OIDC on HTTP APIs (pandaproxy / schema registry):
+#   rpk cluster config set http_authentication '["BASIC","OIDC"]'
+#

@@ -1,0 +1,4 @@
+bootstrap_servers: "rpdev2:9092"
+token_endpoint: "http://rpdev2:8088/realms/redpanda/protocol/openid-connect/token"
+client_id: "bob"
+client_secret: "707wpsu5hp0JwefSlBTWGsljaFp68MQ0"

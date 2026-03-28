@@ -1,0 +1,49 @@
+kafka:
+  brokers: ["rpdev2:9092"]
+  sasl:
+    enabled: true
+    username: "admin"
+    password: "admin"
+    mechanism: "SCRAM-SHA-256"
+schemaRegistry:
+  enabled: true
+  urls: ["http://rpdev2:8081"]
+  authentication:
+    basic:
+      username: "admin"
+      password: "admin"
+redpanda:
+  adminApi:
+    enabled: true
+    urls: ["http://rpdev2:9644"]
+    authentication:
+      basic:
+        username: "admin"
+        password: "admin"
+
+authentication:
+  jwtSigningKey: VPIZk635JwGHC2Uu0kAnaGy7Vna1QryrProZKpkwG40=
+  useSecureCookies: false
+  basic:
+    enabled: true
+  oidc:
+    enabled: true
+    issuerUrl: 'http://rpdev2:8088/realms/redpanda'
+    clientId: test-client
+    clientSecret: gZjUymWZmvxGObNqxpZecPJj2372Y8SR
+    redirectUrl: 'http://rpdev2:8080/auth/callbacks/oidc'
+    prompt: consent
+    accessType: offline
+    principalMapping: $.email
+
+# Console has its own RBAC layer, separate from Redpanda cluster ACLs.
+# Even if a user is a cluster superuser, Console won't grant UI permissions
+# unless there's a role binding here. Without this, login succeeds but
+# all actions return 403.
+# Built-in Console roles: admin, editor, viewer.
+authorization:
+  roleBindings:
+    - roleName: admin
+      users:
+        - loginType: basic
+          name: "admin"
