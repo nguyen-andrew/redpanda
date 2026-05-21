@@ -153,7 +153,18 @@ class TopicRecreateTest(RedpandaTest):
 
         self.client().create_topic(spec)
 
-        producer_properties = {}
+        # Workaround for a librdkafka behavior gap: after a topic is
+        # deleted and recreated, the producer's per-partition
+        # leader_epoch cache isn't reset, so the new topic's fresh
+        # leader_epoch is rejected as stale and the producer stays on
+        # the old leader. Aggressive metadata refresh lets the cache
+        # catch up within the test's 30s wait. See librdkafka
+        # src/rdkafka_topic.c:692 (staleness check) and :1432
+        # (topic_id-change FIXME).
+        producer_properties = {
+            "topic.metadata.refresh.interval.ms": 2000,
+            "topic.metadata.propagation.max.ms": 2000,
+        }
         if workload == Workload.ACKS_1:
             producer_properties["acks"] = 1
         elif workload == Workload.ACKS_ALL:
