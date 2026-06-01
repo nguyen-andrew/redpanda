@@ -244,8 +244,8 @@ public:
                         && x._behavior == y._behavior;
                 } else if constexpr (std::is_same_v<T1, materialized_state>) {
                     auto eq =( x.v == y.v && x.index == y.index);
-                    std::cout << (eq ? "EQUAL" : "NOT EQUAL") << std::endl;
-                    std::cout << "x.index: " << x.index << ", y.index: " << y.index << std::endl;
+                    // std::cout << (eq ? "EQUAL" : "NOT EQUAL") << std::endl;
+                    // std::cout << "x.index: " << x.index << ", y.index: " << y.index << std::endl;
                     return eq;
                 }
             }, a._it_state, b._it_state);
@@ -263,16 +263,16 @@ public:
     iterator begin() const & noexcept {
         return ss::visit(_storage,
             [](std::monostate const&) -> iterator {
-                std::cout << "*** MONOSTATE" << std::endl;
+                // std::cout << "*** MONOSTATE" << std::endl;
                 return {std::monostate{}};
             },
             [this](chunked_vector<ss::sstring> const& v) -> iterator {
-                std::cout << "*** STRING VEC" << std::endl;
+                // std::cout << "*** STRING VEC" << std::endl;
                 // return { ._it_state=iterator::vec_state{ .v=&v, .index=0 }, .behavior=_behavior };
                 return {iterator::vec_state{ ._behavior=_behavior, .v=&v, .index=0 }};
             },
             [this](ss::sstring const& s) -> iterator {
-                std::cout << "*** CSV" << std::endl;
+                // std::cout << "*** CSV" << std::endl;
                 iterator::split_state ss{ ._behavior=_behavior, .remaining = s, .current = {}, .at_end = false };
                 // Prime the first token into ss.current
                 ss.advance();
@@ -280,7 +280,7 @@ public:
                 return {ss};
             },
             [](chunked_vector<security::acl_principal> const& v) -> iterator {
-                std::cout << "*** MATERIALIZED" << std::endl;
+                // std::cout << "*** MATERIALIZED" << std::endl;
                 return {iterator::materialized_state{ .v=&v, .index=0 }};
             }
         );
@@ -298,7 +298,7 @@ public:
                 return {iterator::split_state{._behavior=_behavior, .remaining = {}, .current = {}, .at_end = true}};
             },
             [](chunked_vector<security::acl_principal> const& v) -> iterator {
-                std::cout << "*** MATERIALIZED (END), v.size() = " << v.size() << std::endl;
+                // std::cout << "*** MATERIALIZED (END), v.size() = " << v.size() << std::endl;
                 return {iterator::materialized_state{ .v=&v, .index=v.size() }};
             }
         );
