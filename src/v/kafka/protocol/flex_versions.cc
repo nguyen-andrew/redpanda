@@ -48,6 +48,25 @@ get_flexible_request_min_versions_list(type_list<RequestTypes...> r) {
 constexpr auto g_flex_mapping = get_flexible_request_min_versions_list(
   request_types());
 
+/// Rebased flex mapping for the reserved Redpanda API key range. Indices map to
+/// `key - redpanda_api_key_base` and values to the first flex version for that
+/// api (\ref invalid_api if the offset is unused). Kept separate from
+/// \ref g_flex_mapping so the standard table isn't sized to the reserved base.
+template<typename... RequestTypes>
+consteval auto get_custom_flex_list(type_list<RequestTypes...>) {
+    constexpr int base = static_cast<int>(redpanda_api_key_base());
+    std::array<api_version, api_table_span<base, RequestTypes::key()...>()>
+      versions;
+    versions.fill(invalid_api);
+    ((versions[static_cast<int>(RequestTypes::key()) - base]
+      = RequestTypes::min_flexible),
+     ...);
+    return versions;
+}
+
+constexpr auto g_custom_flex_mapping = get_custom_flex_list(
+  redpanda_request_types());
+
 struct protocol_parse_exception : public net::parsing_exception {
     explicit protocol_parse_exception(const std::string& m)
       : net::parsing_exception(m) {}
@@ -56,6 +75,17 @@ struct protocol_parse_exception : public net::parsing_exception {
 } // namespace
 
 bool flex_versions::is_flexible_request(api_key key, api_version version) {
+    if (key >= redpanda_api_key_base) {
+        const auto offset = static_cast<int>(key())
+                            - static_cast<int>(redpanda_api_key_base());
+        const api_version first_flex = (offset >= 0
+                                        && static_cast<size_t>(offset)
+                                             < g_custom_flex_mapping.size())
+                                         ? g_custom_flex_mapping[offset]
+                                         : invalid_api;
+        return first_flex != invalid_api && first_flex != never_flexible
+               && version >= first_flex;
+    }
     /// If bounds checking is desired call is_api_in_schema(key) beforehand
     const api_version first_flex_version = g_flex_mapping[key()];
     return (version >= first_flex_version)
@@ -63,6 +93,13 @@ bool flex_versions::is_flexible_request(api_key key, api_version version) {
 }
 
 bool flex_versions::is_api_in_schema(api_key key) noexcept {
+    if (key >= redpanda_api_key_base) {
+        const auto offset = static_cast<int>(key())
+                            - static_cast<int>(redpanda_api_key_base());
+        return offset >= 0
+               && static_cast<size_t>(offset) < g_custom_flex_mapping.size()
+               && g_custom_flex_mapping[offset] != invalid_api;
+    }
     constexpr auto max_version = g_flex_mapping.max_size() - 1;
     if (key() < 0 || static_cast<size_t>(key()) > max_version) {
         return false;

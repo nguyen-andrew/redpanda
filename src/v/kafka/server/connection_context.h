@@ -386,6 +386,12 @@ private:
     std::optional<ss::scheduling_group>
       get_scheduling_group_override(api_key) const;
 
+    // True if requests with this API key are subject to throughput control.
+    // Reserved Redpanda API keys live beyond the throughput bitmap (sized to
+    // the standard range) and are never throughput-controlled; a genuinely
+    // out-of-range standard key still throws via the bitmap's bounds check.
+    bool is_throughput_controlled(api_key key) const;
+
     proto::admin::kafka_connection to_closed_proto() const;
 
     class ctx_log {

@@ -105,6 +105,10 @@ private:
     metrics::internal_metric_groups _metrics;
     metrics::public_metric_groups _public_metrics;
     std::vector<handler_probe> _probes;
+    // Reserved Redpanda API key range: rebased, indexed by
+    // key - redpanda_api_key_base. Kept separate so the dense _probes vector is
+    // not enlarged by the five-digit custom keys.
+    std::vector<handler_probe> _custom_probes;
 };
 
 } // namespace kafka

@@ -149,6 +149,21 @@ redpanda_cc_btest(
     ],
 )
 
+redpanda_cc_gtest(
+    name = "handler_probe_test",
+    timeout = "short",
+    srcs = [
+        "handler_probe_test.cc",
+    ],
+    deps = [
+        "//src/v/kafka/protocol",
+        "//src/v/kafka/server",
+        "//src/v/test_utils:gtest",
+        "@googletest//:gtest",
+        "@seastar",
+    ],
+)
+
 redpanda_cc_btest(
     name = "handler_interface_test",
     timeout = "short",
@@ -164,6 +179,7 @@ redpanda_cc_btest(
         "//src/v/cluster:data_migration_table",
         "//src/v/cluster:feature_backend",
         "//src/v/cluster:plugin_backend",
+        "//src/v/kafka/protocol:flex_versions",
         "//src/v/kafka/server",
         "//src/v/test_utils:seastar_boost",
         "@boost//:test",

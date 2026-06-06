@@ -151,6 +151,13 @@ static const auto& handlers() {
     return lut;
 }
 
+static const auto& custom_handlers() {
+    static constexpr auto lut
+      = make_lut<static_cast<int>(redpanda_api_key_base())>(
+        redpanda_request_types{});
+    return lut;
+}
+
 std::optional<handler> handler_for_key(kafka::api_key key) noexcept {
     const auto& lut = handlers();
     if (key >= (short)0 && key < (short)lut.size()) {
@@ -159,6 +166,18 @@ std::optional<handler> handler_for_key(kafka::api_key key) noexcept {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
         if (auto handler = lut[key]) {
             return handler;
+        }
+        return std::nullopt;
+    }
+    if (key >= redpanda_api_key_base) {
+        const auto& clut = custom_handlers();
+        const auto offset = static_cast<int>(key())
+                            - static_cast<int>(redpanda_api_key_base());
+        if (offset >= 0 && static_cast<size_t>(offset) < clut.size()) {
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+            if (auto handler = clut[offset]) {
+                return handler;
+            }
         }
     }
     return std::nullopt;
@@ -174,5 +193,14 @@ std::optional<api_key> api_name_to_key(std::string_view name) noexcept {
 }
 
 size_t max_api_key() noexcept { return max_api_key(request_types{}); }
+
+size_t max_redpanda_api_key() noexcept {
+    return max_api_key(redpanda_request_types{});
+}
+
+bool is_reserved_redpanda_api_key(api_key key) noexcept {
+    return key >= redpanda_api_key_base
+           && static_cast<size_t>(key()) <= max_redpanda_api_key();
+}
 
 } // namespace kafka

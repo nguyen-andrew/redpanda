@@ -15,6 +15,7 @@
 #include "kafka/protocol/schemata/fetch_request.h"
 #include "kafka/protocol/schemata/produce_request.h"
 #include "kafka/server/handlers/handler_interface.h"
+#include "kafka/server/handlers/handlers.h"
 #include "metrics/prometheus_sanitize.h"
 
 #include <seastar/core/lowres_clock.hh>
@@ -27,7 +28,12 @@ namespace kafka {
 
 handler_probe_manager::handler_probe_manager()
   : _metrics()
-  , _probes(max_api_key() + 2) {
+  , _probes(max_api_key() + 2)
+  , _custom_probes([]<typename... Ts>(type_list<Ts...>) {
+      return api_table_span<
+        static_cast<int>(redpanda_api_key_base()),
+        Ts::api::key()...>();
+  }(redpanda_request_types{})) {
     const auto unknown_handler_key = max_api_key() + 1;
     const bool handler_latency_all
       = config::shard_local_cfg().kafka_handler_latency_all();
@@ -51,11 +57,32 @@ handler_probe_manager::handler_probe_manager()
             }
         }
     }
+
+    // Reserved Redpanda API key range: separate, rebased storage so the dense
+    // _probes vector is not enlarged by five-digit keys. Offset i maps to API
+    // key redpanda_api_key_base + i; offsets without a handler are gaps.
+    const auto base = static_cast<size_t>(redpanda_api_key_base());
+    for (size_t offset = 0; offset < _custom_probes.size(); offset++) {
+        auto key = api_key(base + offset);
+        auto handler = handler_for_key(key);
+        if (!handler) {
+            continue;
+        }
+        if (handler_latency_all || (*handler)->has_latency_histogram()) {
+            _custom_probes[offset].enable_histogram();
+        }
+        _custom_probes[offset].setup_metrics(_metrics, key);
+    }
 }
 
 handler_probe& handler_probe_manager::get_probe(api_key key) {
     if (!handler_for_key(key)) {
         return _probes.back();
+    }
+    if (key >= redpanda_api_key_base) {
+        const auto offset = static_cast<int>(key())
+                            - static_cast<int>(redpanda_api_key_base());
+        return _custom_probes[offset];
     }
 
     return _probes[key];

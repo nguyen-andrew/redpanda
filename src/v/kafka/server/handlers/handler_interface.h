@@ -135,4 +135,17 @@ std::optional<api_key> api_name_to_key(std::string_view name) noexcept;
  */
 size_t max_api_key() noexcept;
 
+/**
+ * @return The highest API key in the reserved Redpanda-specific range.
+ */
+size_t max_redpanda_api_key() noexcept;
+
+/**
+ * @return true if \p key falls within the reserved Redpanda-specific API key
+ * range (redpanda_api_key_base ..= max_redpanda_api_key). These keys are
+ * dispatched via the rebased custom handler tables and are absent from the
+ * dense, standard-range structures.
+ */
+bool is_reserved_redpanda_api_key(api_key key) noexcept;
+
 } // namespace kafka

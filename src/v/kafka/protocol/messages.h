@@ -31,6 +31,7 @@
 #include "kafka/protocol/schemata/describe_groups_request.h"
 #include "kafka/protocol/schemata/describe_log_dirs_request.h"
 #include "kafka/protocol/schemata/describe_producers_request.h"
+#include "kafka/protocol/schemata/describe_redpanda_roles_request.h"
 #include "kafka/protocol/schemata/describe_transactions_request.h"
 #include "kafka/protocol/schemata/describe_user_scram_credentials_request.h"
 #include "kafka/protocol/schemata/end_txn_request.h"
@@ -112,5 +113,9 @@ using request_types = make_request_types<
   describe_cluster_api,
   describe_user_scram_credentials_api,
   alter_user_scram_credentials_api>;
+
+// Redpanda-specific custom APIs. Kept separate from request_types so
+// max_api_key() stays at the standard max.
+using redpanda_request_types = make_request_types<describe_redpanda_roles_api>;
 
 } // namespace kafka

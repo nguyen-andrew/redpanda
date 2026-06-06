@@ -625,6 +625,13 @@ bool connection_context::is_finished_parsing() const {
     return conn->input().eof() || abort_requested();
 }
 
+bool connection_context::is_throughput_controlled(api_key key) const {
+    if (is_reserved_redpanda_api_key(key)) {
+        return false;
+    }
+    return _kafka_throughput_controlled_api_keys().at(key());
+}
+
 ss::future<connection_context::delay_t>
 connection_context::record_tp_and_calculate_throttle(
   request_data r_data, const size_t request_size) {
@@ -664,7 +671,7 @@ connection_context::record_tp_and_calculate_throttle(
 
     // Throttle on shard wide quotas
     connection_context::delay_t snc_delay;
-    if (_kafka_throughput_controlled_api_keys().at(r_data.request_key)) {
+    if (is_throughput_controlled(r_data.request_key)) {
         _server.snc_quota_mgr().get_or_create_quota_context(
           _snc_quota_context, r_data.client_id);
         _server.snc_quota_mgr().record_request_receive(
@@ -805,7 +812,7 @@ connection_context::dispatch_method_once(request_header hdr, size_t size) {
         // protect against shutdown behavior
         co_return;
     }
-    if (_kafka_throughput_controlled_api_keys().at(hdr.key)) {
+    if (is_throughput_controlled(hdr.key)) {
         // Normally we can only get here after a prior call to
         // snc_quota_mgr().get_or_create_quota_context() in
         // record_tp_and_calculate_throttle(), but there is possibility
@@ -1193,8 +1200,7 @@ connection_context::client_protocol_state::do_process_responses(
     // egress token bucket level will always be an extra burst into
     // the negative while under pressure.
     auto request_key = resp_and_res.resources->request_data.request_key;
-    if (
-      connection_ctx->_kafka_throughput_controlled_api_keys().at(request_key)) {
+    if (connection_ctx->is_throughput_controlled(request_key)) {
         // see the comment in dispatch_method_once()
         if (likely(connection_ctx->_snc_quota_context)) {
             connection_ctx->_server.snc_quota_mgr().record_response(

@@ -31,6 +31,7 @@
 #include "kafka/server/handlers/describe_groups.h"
 #include "kafka/server/handlers/describe_log_dirs.h"
 #include "kafka/server/handlers/describe_producers.h"
+#include "kafka/server/handlers/describe_redpanda_roles.h"
 #include "kafka/server/handlers/describe_transactions.h"
 #include "kafka/server/handlers/describe_user_scram_credentials.h"
 #include "kafka/server/handlers/end_txn.h"
@@ -116,6 +117,12 @@ using request_types = make_request_types<
   describe_cluster_handler,
   describe_user_scram_credentials_handler,
   alter_user_scram_credentials_handler>;
+
+// Redpanda-specific custom API handlers (reserved key range). Kept separate
+// from request_types so the dense, max-key-sized dispatch structures are not
+// resized by the five-digit custom keys.
+using redpanda_request_types
+  = make_request_types<describe_redpanda_roles_handler>;
 
 template<typename... RequestTypes>
 static constexpr size_t max_api_key(type_list<RequestTypes...>) {
