@@ -20,12 +20,40 @@
 
 #include <boost/numeric/conversion/cast.hpp>
 
+#include <algorithm>
 #include <concepts>
+#include <cstddef>
 
 namespace kafka {
 
 /// Kafka API key.
 using api_key = named_type<int16_t, struct kafka_api_key>;
+
+// Base of the reserved Redpanda-specific Kafka API key range.
+inline constexpr api_key redpanda_api_key_base{15000};
+
+/// Returns the size of a key-indexed table (dispatch LUT, flex-version map,
+/// handler probes) whose entry i holds API key Base+i. Base=0 indexes directly
+/// by key; a nonzero base (e.g. redpanda_api_key_base) rebases the reserved
+/// range so the table spans only the keys used, not the five-digit key value.
+/// Guards reject an empty key set, any key below the base, and overly sparse
+/// layouts that would waste a large, mostly-empty table.
+template<int Base, int16_t... Keys>
+consteval size_t api_table_span() {
+    static_assert(sizeof...(Keys) > 0, "API table requires at least one key");
+    static_assert(
+      ((static_cast<int>(Keys) >= Base) && ...),
+      "API keys must be >= the table base; a smaller key gives a negative "
+      "rebased offset (out of bounds)");
+    constexpr int max_offset = std::max({(static_cast<int>(Keys) - Base)...});
+    // Reject layouts whose rebased span exceeds this multiple of the key count,
+    // which would allocate a large, mostly-empty table.
+    constexpr int max_density_factor = 10;
+    static_assert(
+      max_offset < static_cast<int>(sizeof...(Keys)) * max_density_factor,
+      "API table is too sparse; allocate keys densely from the base");
+    return static_cast<size_t>(max_offset + 1);
+}
 
 /// Kafka API version.
 using api_version = named_type<int16_t, struct kafka_api_version>;

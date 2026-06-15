@@ -120,3 +120,16 @@ redpanda_cc_gtest(
         "@googletest//:gtest",
     ],
 )
+
+redpanda_cc_gtest(
+    name = "api_table_span_test",
+    timeout = "short",
+    srcs = [
+        "api_table_span_test.cc",
+    ],
+    deps = [
+        "//src/v/kafka/protocol",
+        "//src/v/test_utils:gtest",
+        "@googletest//:gtest",
+    ],
+)

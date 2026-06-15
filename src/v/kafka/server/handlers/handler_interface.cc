@@ -129,14 +129,20 @@ struct handler_holder {
       H::handle};
 };
 
-template<typename... Ts>
+/**
+ * @brief Builds a key-indexed dispatch table for a set of handlers.
+ *
+ * Entry i maps to API key Base+i. Standard handlers pass Base=0 so the table is
+ * indexed directly by key; reserved-range handlers pass redpanda_api_key_base
+ * so the table is rebased and stays small instead of spanning from zero.
+ * api_table_span enforces the layout invariants.
+ */
+template<int Base = 0, typename... Ts>
 constexpr auto make_lut(type_list<Ts...>) {
-    constexpr int max_index = std::max({Ts::api::key...});
-    static_assert(max_index < sizeof...(Ts) * 10, "LUT is too sparse");
-
-    std::array<handler, max_index + 1> lut{};
-    ((lut[Ts::api::key] = &handler_holder<Ts>::instance), ...);
-
+    std::array<handler, api_table_span<Base, Ts::api::key()...>()> lut{};
+    ((lut[static_cast<int>(Ts::api::key()) - Base]
+      = &handler_holder<Ts>::instance),
+     ...);
     return lut;
 }
 
