@@ -1015,55 +1015,57 @@ errc frontend::validator::validate_connection_config(
     return errc::success;
 }
 
+// Generic name-filter pattern validation shared by topic and role filters.
+// Returns true if the pattern is invalid: empty, contains '*' as anything
+// other than the entire pattern, uses '*' outside a literal pattern, or
+// contains characters outside [A-Za-z0-9._-].
+static bool is_invalid_name_filter_pattern(
+  const ::cluster_link::model::resource_name_filter_pattern& p) {
+    if (p.pattern.empty()) {
+        vlog(cluster::clusterlog.info, "Filter pattern is empty");
+        return true;
+    }
+    if (
+      p.pattern.contains(
+        ::cluster_link::model::resource_name_filter_pattern::wildcard)
+      && p.pattern
+           != ::cluster_link::model::resource_name_filter_pattern::wildcard) {
+        vlog(
+          cluster::clusterlog.info, "Filter pattern is invalid: Contains '*'");
+        return true;
+    }
+    if (
+      p.pattern == ::cluster_link::model::resource_name_filter_pattern::wildcard
+      && p.pattern_type
+           != ::cluster_link::model::filter_pattern_type::literal) {
+        vlog(
+          cluster::clusterlog.info,
+          "Filter pattern is invalid: Wildcard '*' can only be used in "
+          "literal patterns");
+        return true;
+    }
+    if (
+      p.pattern != ::cluster_link::model::resource_name_filter_pattern::wildcard
+      && !std::ranges::all_of(p.pattern, [](char c) {
+             return std::isalnum(c) || c == '.' || c == '-' || c == '_';
+         })) {
+        vlog(
+          cluster::clusterlog.info,
+          "Filter pattern contains invalid characters");
+        return true;
+    }
+    return false;
+}
+
 errc frontend::validator::validate_metadata_mirroring_config(
   const ::cluster_link::model::topic_metadata_mirroring_config& config) const {
-    // Validates that the pattern:
-    // - is not empty
-    // - does not contain the wildcard character '*' unless it is the only
-    //   character in the pattern
-    // - the characters are valid UTF-8
-    // - wildcard only present in 'literal' patterns
     const auto check_filter_pattern =
       [](const ::cluster_link::model::resource_name_filter_pattern& p) {
-          if (p.pattern.empty()) {
-              vlog(cluster::clusterlog.info, "Filter pattern is empty");
+          if (is_invalid_name_filter_pattern(p)) {
               return true;
           }
-          if (
-            p.pattern.contains(
-              ::cluster_link::model::resource_name_filter_pattern::wildcard)
-            && p.pattern
-                 != ::cluster_link::model::resource_name_filter_pattern::
-                   wildcard) {
-              vlog(
-                cluster::clusterlog.info,
-                "Filter pattern is invalid: Contains '*'");
-              return true;
-          }
-          if (
-            p.pattern
-              == ::cluster_link::model::resource_name_filter_pattern::wildcard
-            && p.pattern_type
-                 != ::cluster_link::model::filter_pattern_type::literal) {
-              vlog(
-                cluster::clusterlog.info,
-                "Filter pattern is invalid: Wildcard '*' can only be used in "
-                "literal patterns");
-              return true;
-          }
-          if (
-            p.pattern
-              != ::cluster_link::model::resource_name_filter_pattern::wildcard
-            && !std::ranges::all_of(p.pattern, [](char c) {
-                   return std::isalnum(c) || c == '.' || c == '-' || c == '_';
-               })) {
-              vlog(
-                cluster::clusterlog.info,
-                "Filter pattern contains invalid characters");
-              return true;
-          }
-          // Do not permit specifying the consumer offsets or audit logging
-          // topic
+          // Do not permit the consumer offsets, audit logging, or schema
+          // registry internal topics
           if (
             p.pattern == ::model::kafka_consumer_offsets_topic()
             || p.pattern == ::model::kafka_audit_logging_topic()
@@ -1074,8 +1076,7 @@ errc frontend::validator::validate_metadata_mirroring_config(
                 p.pattern);
               return true;
           }
-          // Do not permit specifying "_redpanda" or "__redpanda" as a topic
-          // name prefix
+          // Do not permit "_redpanda" or "__redpanda" as a topic name prefix
           if (
             p.pattern_type == ::cluster_link::model::filter_pattern_type::prefix
             && (p.pattern == "_redpanda" || p.pattern == "__redpanda")) {
