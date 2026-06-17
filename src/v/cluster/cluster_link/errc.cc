@@ -68,6 +68,8 @@ std::string errc_category::message(int c) const {
         return "Link has active shadow topics";
     case errc::license_required:
         return "A valid license is required to create a shadow link";
+    case errc::role_sync_config_invalid:
+        return "Role sync configuration is invalid";
     }
     return "cluster::cluster_link::unknown";
 }
@@ -167,5 +169,8 @@ auto fmt::formatter<cluster::cluster_link::errc>::format(
     case cluster::cluster_link::errc::license_required:
         return fmt::format_to(
           ctx.out(), "cluster::cluster_link::errc::license_required");
+    case cluster::cluster_link::errc::role_sync_config_invalid:
+        return fmt::format_to(
+          ctx.out(), "cluster::cluster_link::errc::role_sync_config_invalid");
     }
 }

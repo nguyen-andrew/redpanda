@@ -1315,4 +1315,49 @@ TEST_F_CORO(
       errc::invalid_update);
 }
 
+TEST_F_CORO(frontend_validation_test, test_role_sync_valid) {
+    auto m1 = create_base_metadata();
+    m1.configuration.role_sync_cfg.role_name_filters = {
+      {
+        .pattern_type = ::cluster_link::model::filter_pattern_type::literal,
+        .filter = ::cluster_link::model::filter_type::include,
+        .pattern = "analytics-reader",
+      },
+      {
+        .pattern_type = ::cluster_link::model::filter_pattern_type::prefix,
+        .filter = ::cluster_link::model::filter_type::exclude,
+        .pattern = "tmp-",
+      }};
+
+    EXPECT_EQ(
+      co_await upsert_cluster_link(std::move(m1)),
+      cluster::cluster_link::errc::success);
+}
+
+TEST_F_CORO(frontend_validation_test, test_role_sync_empty_pattern) {
+    auto m1 = create_base_metadata();
+    m1.configuration.role_sync_cfg.role_name_filters = {{
+      .pattern_type = ::cluster_link::model::filter_pattern_type::literal,
+      .filter = ::cluster_link::model::filter_type::include,
+      .pattern = "",
+    }};
+
+    EXPECT_EQ(
+      co_await upsert_cluster_link(std::move(m1)),
+      cluster::cluster_link::errc::role_sync_config_invalid);
+}
+
+TEST_F_CORO(frontend_validation_test, test_role_sync_invalid_wildcard) {
+    auto m1 = create_base_metadata();
+    m1.configuration.role_sync_cfg.role_name_filters = {{
+      .pattern_type = ::cluster_link::model::filter_pattern_type::literal,
+      .filter = ::cluster_link::model::filter_type::include,
+      .pattern = "*foo",
+    }};
+
+    EXPECT_EQ(
+      co_await upsert_cluster_link(std::move(m1)),
+      cluster::cluster_link::errc::role_sync_config_invalid);
+}
+
 } // namespace cluster::cluster_link

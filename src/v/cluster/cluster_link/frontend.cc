@@ -630,8 +630,14 @@ errc frontend::validator::validate_mutation(const cluster_link_cmd& cmd) const {
                   return ec;
               }
 
-              return validate_metadata_mirroring_config(
+              ec = validate_metadata_mirroring_config(
                 cmd.value.configuration.topic_metadata_mirroring_cfg);
+              if (ec != errc::success) {
+                  return ec;
+              }
+
+              return validate_role_sync_config(
+                cmd.value.configuration.role_sync_cfg);
           }
           // New item!
           if (cmd.value.name().empty()) {
@@ -684,8 +690,14 @@ errc frontend::validator::validate_mutation(const cluster_link_cmd& cmd) const {
               return ec;
           }
 
-          return validate_metadata_mirroring_config(
+          ec = validate_metadata_mirroring_config(
             cmd.value.configuration.topic_metadata_mirroring_cfg);
+          if (ec != errc::success) {
+              return ec;
+          }
+
+          return validate_role_sync_config(
+            cmd.value.configuration.role_sync_cfg);
       },
       [this](const cluster::cluster_link_remove_cmd& cmd) {
           auto meta = _table->find_link_by_name(cmd.value.link_name);
@@ -946,6 +958,11 @@ errc frontend::validator::validate_mutation(const cluster_link_cmd& cmd) const {
               return ec;
           }
 
+          ec = validate_role_sync_config(cmd.value.link_config.role_sync_cfg);
+          if (ec != errc::success) {
+              return ec;
+          }
+
           return errc::success;
       });
 }
@@ -1101,6 +1118,16 @@ errc frontend::validator::validate_metadata_mirroring_config(
         }
     }
 
+    return errc::success;
+}
+
+errc frontend::validator::validate_role_sync_config(
+  const ::cluster_link::model::role_sync_config& config) const {
+    if (
+      std::ranges::any_of(
+        config.role_name_filters, is_invalid_name_filter_pattern)) {
+        return errc::role_sync_config_invalid;
+    }
     return errc::success;
 }
 

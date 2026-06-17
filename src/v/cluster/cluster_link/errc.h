@@ -41,6 +41,7 @@ enum class errc : int16_t {
     scram_configuration_invalid,
     link_has_active_shadow_topics,
     license_required,
+    role_sync_config_invalid,
 };
 
 struct errc_category final : public std::error_category {
