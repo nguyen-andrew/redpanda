@@ -210,6 +210,35 @@ redpanda_cc_library(
 )
 
 redpanda_cc_library(
+    name = "roles_migrator",
+    srcs = [
+        "roles_migrator.cc",
+    ],
+    hdrs = [
+        "roles_migrator.h",
+    ],
+    implementation_deps = [
+        ":impl",
+        ":role_reconcile",
+        "//src/v/kafka/server:security",
+        "//src/v/security",
+    ],
+    visibility = ["//src/v/cluster_link:__subpackages__"],
+    deps = [
+        ":logger",
+        ":role_reconcile",
+        ":utils",
+        "//src/v/cluster:fwd",
+        "//src/v/cluster_link/model",
+        "//src/v/kafka/client:cluster",
+        "//src/v/kafka/protocol",
+        "//src/v/kafka/protocol:describe_redpanda_roles",
+        "//src/v/kafka/server:roles",
+        "@seastar",
+    ],
+)
+
+redpanda_cc_library(
     name = "cluster_link",
     srcs = [
         "service.cc",
@@ -221,6 +250,7 @@ redpanda_cc_library(
         ":group_mirroring_task",
         ":impl",
         ":logger",
+        ":roles_migrator",
         ":security_migrator",
         ":source_topic_syncer",
         "//src/v/cluster:fwd",
