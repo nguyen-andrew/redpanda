@@ -178,6 +178,24 @@ redpanda_cc_gtest(
 )
 
 redpanda_cc_gtest(
+    name = "roles_migrator_test",
+    timeout = "short",
+    srcs = [
+        "roles_migrator_test.cc",
+    ],
+    deps = [
+        ":test_deps",
+        "//src/v/cluster_link:roles_migrator",
+        "//src/v/kafka/protocol:describe_redpanda_roles",
+        "//src/v/kafka/server:roles",
+        "//src/v/security",
+        "//src/v/test_utils:gtest",
+        "@googletest//:gtest",
+        "@seastar",
+    ],
+)
+
+redpanda_cc_gtest(
     name = "role_reconcile_test",
     timeout = "short",
     srcs = [

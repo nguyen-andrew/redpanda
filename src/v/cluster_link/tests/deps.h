@@ -23,6 +23,8 @@
 #include "kafka/data/rpc/deps.h"
 #include "kafka/data/rpc/test/deps.h"
 #include "security/acl_entry_set.h"
+#include "security/role.h"
+#include "security/role_store.h"
 
 #include <seastar/util/defer.hh>
 
@@ -593,17 +595,79 @@ public:
             entries.rehash();
             results.emplace_back(cluster::errc::success);
         }
-
         co_return results;
     }
 
+    ss::future<std::error_code> create_role(
+      security::role_name name,
+      security::role role,
+      ::model::timeout_clock::duration) final {
+        if (!_rbac_active) {
+            co_return cluster::errc::feature_disabled;
+        }
+        if (_roles.contains(name)) {
+            co_return cluster::errc::role_exists;
+        }
+        _roles.emplace(std::move(name), std::move(role));
+        co_return cluster::errc::success;
+    }
+
+    ss::future<std::error_code> update_role(
+      security::role_name name,
+      security::role role,
+      ::model::timeout_clock::duration) final {
+        if (!_rbac_active) {
+            co_return cluster::errc::feature_disabled;
+        }
+        auto it = _roles.find(name);
+        if (it == _roles.end()) {
+            co_return cluster::errc::role_does_not_exist;
+        }
+        it->second = std::move(role);
+        co_return cluster::errc::success;
+    }
+
+    ss::future<std::error_code> delete_role(
+      security::role_name name, ::model::timeout_clock::duration) final {
+        if (!_rbac_active) {
+            co_return cluster::errc::feature_disabled;
+        }
+        if (_roles.erase(name) == 0) {
+            co_return cluster::errc::role_does_not_exist;
+        }
+        co_return cluster::errc::success;
+    }
+
+    bool rbac_active() const final { return _rbac_active; }
+
+    chunked_vector<security::role_with_members> read_destination_roles(
+      const std::function<bool(const security::role_name&)>& pred) const final {
+        chunked_vector<security::role_with_members> out;
+        for (const auto& [name, role] : _roles) {
+            if (pred(name)) {
+                out.push_back(
+                  security::role_with_members{
+                    .name = name, .role = security::role{role.members()}});
+            }
+        }
+        return out;
+    }
+
+    // Test seams.
+    void set_rbac_active(bool active) { _rbac_active = active; }
+    void seed_role(security::role_name name, security::role role) {
+        _roles.insert_or_assign(std::move(name), std::move(role));
+    }
+    const auto& roles() const { return _roles; }
     const auto& acls() { return _acls; }
 
 private:
-    using container_type
+    using acl_container_type
       = chunked_hash_map<security::resource_pattern, security::acl_entry_set>;
 
-    container_type _acls;
+    acl_container_type _acls;
+    chunked_hash_map<security::role_name, security::role> _roles;
+    bool _rbac_active{true};
 };
 
 class fake_members_table_provider : public members_table_provider {
