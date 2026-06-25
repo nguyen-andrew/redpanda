@@ -22,13 +22,17 @@ from rptest.clients.admin.proto.redpanda.core.admin.v2 import (
     shadow_link_pb2,
 )
 from rptest.clients.admin.v2 import Admin as AdminV2
+from rptest.clients.rpk import RpkTool
 from rptest.clients.types import TopicSpec
+from rptest.services.admin import Admin
 from rptest.services.cluster import cluster
 from rptest.services.multi_cluster_services import (
     SecondaryClusterArgs,
     SecondaryClusterSpec,
     ServiceType,
 )
+from rptest.services.redpanda import SaslCredentials, SecurityConfig
+from rptest.tests.admin_api_auth_test import create_user_and_wait  # type: ignore[reportUnknownVariableType]
 from rptest.tests.cluster_linking_test_base import ShadowLinkTestBase
 from rptest.tests.rbac_test_v2 import AdminV2RoleWrapper
 from rptest.util import expect_timeout
@@ -36,6 +40,9 @@ from rptest.util import expect_timeout
 
 # Matches roles_migrator::task_name in src/v/cluster_link/roles_migrator.h.
 ROLES_MIGRATOR_TASK_NAME = "Roles Migrator Task"
+
+ALICE = SaslCredentials("alice", "itsMeH0nest012", "SCRAM-SHA-256")
+BOB = SaslCredentials("bob", "itsMeH0nest012", "SCRAM-SHA-256")
 
 
 def _user(name: str) -> security_pb2.RoleMember:
@@ -355,3 +362,141 @@ class ShadowLinkRoleSyncKafkaSourceTest(RoleSyncTestBase):
 
         # Topic sync completing did not un-park or fault the roles task.
         assert parked(), "roles task should remain parked after topic sync"
+
+
+class ShadowLinkRoleSyncAuthTest(RoleSyncTestBase):
+    """Role sync with SASL/SCRAM on both clusters: functional authorization and
+    the source-permission boundary."""
+
+    SUPERUSER_LINK = "cluster-link-user"
+    SUPERUSER_LINK_PW = "cluster-link-password"
+
+    def __init__(self, test_context: TestContext):
+        security = SecurityConfig()
+        security.enable_sasl = True
+        super().__init__(
+            test_context=test_context,
+            num_brokers=3,
+            security=security,
+            secondary_cluster_args=SecondaryClusterArgs(security=security),
+        )
+
+    def _source_superuser_rpk(self) -> RpkTool:
+        su = self.redpanda.SUPERUSER_CREDENTIALS
+        return RpkTool(
+            self.source_cluster_service,
+            username=su.username,
+            password=su.password,
+            sasl_mechanism=su.mechanism,
+        )
+
+    def _add_link_scram_creds(
+        self,
+        req: shadow_link_pb2.CreateShadowLinkRequest,
+        username: str,
+        password: str,
+    ) -> None:
+        req.shadow_link.configurations.client_options.authentication_configuration.scram_configuration.CopyFrom(
+            shadow_link_pb2.ScramConfig(
+                username=username,
+                password=password,
+                scram_mechanism=shadow_link_pb2.SCRAM_MECHANISM_SCRAM_SHA_256,
+            )
+        )
+
+    def setUp(self):
+        super().setUp()
+        su = self.redpanda.SUPERUSER_CREDENTIALS
+        # Under SASL, the base's unauthenticated target clients fail. Rebind the
+        # shadow-link service client and the destination role wrapper to a
+        # superuser-authenticated AdminV2 (see Global Constraints).
+        self.admin_v2 = AdminV2(
+            self.target_cluster_service, auth=(su.username, su.password)
+        )
+        self.service_client = self.admin_v2.shadow_link()
+        self._dst = AdminV2RoleWrapper(self.admin_v2)
+        # _src talks Admin v2 to the source as the source superuser.
+        self._src = AdminV2RoleWrapper(
+            AdminV2(self.source_cluster_service, auth=(su.username, su.password))
+        )
+        # A privileged link principal on the source (added to superusers so it
+        # can enumerate roles and ACLs).
+        self._source_superuser_rpk().sasl_create_user(
+            self.SUPERUSER_LINK, self.SUPERUSER_LINK_PW
+        )
+        self.source_cluster_service.set_cluster_config(
+            {"superusers": [su.username, self.SUPERUSER_LINK]}
+        )
+
+    def _target_visible_topics(self, creds: SaslCredentials) -> set[str]:
+        rpk = RpkTool(
+            self.target_cluster_service,
+            username=creds.username,
+            password=creds.password,
+            sasl_mechanism=creds.algorithm,
+        )
+        try:
+            return set(rpk.list_topics())
+        except Exception:
+            return set()
+
+    @cluster(num_nodes=6)
+    def test_functional_authz_end_to_end(self):
+        topic = "authz-topic"
+        su_rpk = self._source_superuser_rpk()
+
+        # Pre-provision the member identities on the DESTINATION (credentials do
+        # not sync; they model operator-provisioned DR identities).
+        target_su = self.redpanda.SUPERUSER_CREDENTIALS
+        target_admin = Admin(
+            self.target_cluster_service,
+            auth=(target_su.username, target_su.password),
+        )
+        create_user_and_wait(self.target_cluster_service, target_admin, ALICE)
+        create_user_and_wait(self.target_cluster_service, target_admin, BOB)
+
+        # SOURCE: topic, in-scope role with ALICE as a member, and an ACL bound
+        # to the role principal granting DESCRIBE on the topic.
+        su_rpk.create_topic(topic)
+        self._src.create_role(role="synced-role", members=[_user(ALICE.username)])
+        su_rpk.sasl_allow_principal(
+            "RedpandaRole:synced-role", ["describe"], "topic", topic
+        )
+
+        # Link with role sync + ACL sync (security_sync is on by default in
+        # create_default_link_request) + SCRAM client creds.
+        self._create_link_with_role_sync(
+            mutate_req=lambda req: self._add_link_scram_creds(
+                req, self.SUPERUSER_LINK, self.SUPERUSER_LINK_PW
+            )
+        )
+
+        # Role membership mirrors to the destination.
+        wait_until(
+            lambda: self._dst_role_members("synced-role") == {ALICE.username},
+            timeout_sec=60,
+            backoff_sec=1,
+            err_msg="role membership did not mirror to destination",
+        )
+
+        # The synced role + role-bound ACL authorize the member, not a non-member.
+        # ALICE (member) gains topic visibility once role + ACL have both synced.
+        wait_until(
+            lambda: topic in self._target_visible_topics(ALICE),
+            timeout_sec=60,
+            backoff_sec=1,
+            err_msg="member ALICE was not authorized via the synced role + ACL",
+        )
+        # BOB (non-member) is authenticated but must NOT see the ACL-protected
+        # topic. Probe directly (not via the exception-swallowing helper) so a
+        # transient rpk failure surfaces as an error rather than a vacuous
+        # "denied" pass.
+        bob_rpk = RpkTool(
+            self.target_cluster_service,
+            username=BOB.username,
+            password=BOB.password,
+            sasl_mechanism=BOB.algorithm,
+        )
+        assert topic not in set(bob_rpk.list_topics()), (
+            "non-member BOB must not be authorized by the synced role"
+        )
