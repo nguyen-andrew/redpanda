@@ -13,6 +13,9 @@
 #include "container/chunked_hash_map.h"
 #include "security/role_store.h"
 
+#include <seastar/core/future.hh>
+#include <seastar/coroutine/maybe_yield.hh>
+
 #include <algorithm>
 #include <ranges>
 #include <utility>
@@ -119,6 +122,41 @@ chunked_vector<role_with_members> role_store::roles_with_members(
             .role = role{std::move(members)}});
     }
     return result;
+}
+
+ss::future<chunked_vector<role_with_members>>
+role_store::all_roles_with_members() const {
+    // Single pass over the member store (like roles_with_members), but yields
+    // periodically so snapshotting a very large role store doesn't stall the
+    // controller reactor. Suspending mid-iteration is safe only because the
+    // sole caller, security_manager::fill_snapshot, holds the controller apply
+    // mutex, so no command mutates _roles/_members_store across the yields.
+    chunked_hash_map<role_name_view, role::container_type> by_role;
+    by_role.reserve(_roles.size());
+    for (const auto& rn : _roles) {
+        by_role.try_emplace(role_name_view{rn});
+        co_await ss::coroutine::maybe_yield();
+    }
+
+    for (const auto& [member, role_names] : _members_store) {
+        for (const auto& role_name : role_names) {
+            if (auto it = by_role.find(role_name); it != by_role.end()) {
+                it->second.insert(member);
+            }
+        }
+        co_await ss::coroutine::maybe_yield();
+    }
+
+    chunked_vector<role_with_members> result;
+    result.reserve(by_role.size());
+    for (auto& [name_view, members] : by_role) {
+        result.push_back(
+          role_with_members{
+            .name = role_name{ss::sstring{name_view()}},
+            .role = role{std::move(members)}});
+        co_await ss::coroutine::maybe_yield();
+    }
+    co_return result;
 }
 
 } // namespace security
