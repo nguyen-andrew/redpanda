@@ -1,0 +1,2 @@
+# runtime state from stage.sh (cluster data, logs, pids)
+.run/

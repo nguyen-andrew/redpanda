@@ -1,0 +1,6 @@
+role_sync_options:
+  interval: 5s
+  role_name_filters:
+    - pattern_type: PREFIX
+      filter_type: INCLUDE
+      name: in-scope

@@ -1,0 +1,469 @@
+<title>Role Sync TOI — Deck Sample</title>
+<style>
+  /* ============================================================
+     Redpanda 2026 "ADP rebrand (minimalist)" template, as HTML.
+     Single-theme by design: it mirrors the corporate light deck.
+     Type: Instrument Serif (display) · Space Grotesk (UI/body)
+           · Roboto Mono (code). All OFL/Apache, inlined below.
+     ============================================================ */
+  @font-face {
+    font-family: 'Instrument Serif'; font-style: normal; font-weight: 400;
+    src: url(data:font/woff2;base64,__SERIF_B64__) format('woff2');
+  }
+  @font-face {
+    font-family: 'Space Grotesk'; font-style: normal; font-weight: 300 700;
+    src: url(data:font/woff2;base64,__GROTESK_B64__) format('woff2');
+  }
+  @font-face {
+    font-family: 'Roboto Mono'; font-style: normal; font-weight: 100 700;
+    src: url(data:font/woff2;base64,__MONO_B64__) format('woff2');
+  }
+
+  :root {
+    --paper: #ffffff;
+    --wash: #f3f5f9;      /* accent3 — cool grey ground */
+    --ink: #121827;       /* dk1 */
+    --slate: #697084;     /* accent2 — muted text */
+    --line: #e3e7ef;
+    --red: #e2401b;       /* dk2 — brand red */
+    --orange: #ed8346;    /* lt2 — table headers, gradient */
+    --peach: #faeae5;     /* accent4 — soft red tint */
+    --butter: #ffec89;    /* accent1 — highlight */
+    --green: #188038;     /* template inline-code green */
+    --serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+    --grotesk: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+    --mono: 'Roboto Mono', ui-monospace, Menlo, monospace;
+  }
+
+  html, body { height: 100%; }
+  body {
+    background: var(--wash);
+    color: var(--ink);
+    font-family: var(--grotesk);
+    overflow: hidden;
+  }
+
+  /* ---- stage: fixed 1280x720, scaled to viewport ---- */
+  .stage-wrap { position: fixed; inset: 0; display: grid; place-items: center; }
+  .stage {
+    width: 1280px; height: 720px; position: relative; flex: none;
+    background: var(--paper);
+  }
+
+  .slide {
+    position: absolute; inset: 0;
+    padding: 56px 76px 74px;
+    display: flex; flex-direction: column;
+    background: var(--paper);
+    opacity: 0; visibility: hidden;
+    transition: opacity .25s ease, visibility .25s;
+  }
+  .slide.active { opacity: 1; visibility: visible; }
+  @media (prefers-reduced-motion: reduce) { .slide { transition: none; } }
+
+  /* ---- shared anatomy ---- */
+  .eyebrow {
+    font-family: var(--grotesk); font-weight: 700;
+    font-size: 15px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--red); margin-bottom: 10px;
+  }
+  h1, h2 { font-family: var(--serif); font-weight: 400; text-wrap: balance; }
+  h2 { font-size: 52px; line-height: 1.05; margin-bottom: 34px; letter-spacing: .002em; }
+  .muted { color: var(--slate); }
+  code { font-family: var(--mono); }
+
+  /* footer chrome (template: lockup · © line · page number) */
+  .foot {
+    position: absolute; left: 76px; right: 76px; bottom: 26px;
+    display: flex; align-items: center; gap: 14px;
+    font-family: var(--grotesk); font-size: 11px; color: var(--slate);
+  }
+  .foot img { height: 20px; display: block; }
+  .foot .num { margin-left: auto; font-size: 12px; }
+  .divider .foot { color: rgba(255,255,255,.85); }
+
+  /* ---- slide 1: title (inset gradient card, pixel mosaic) ---- */
+  .title-slide { padding: 24px; background: var(--paper); }
+  .title-card {
+    position: relative; flex: 1; border-radius: 24px; overflow: hidden;
+    background: linear-gradient(100deg, #eef0f6 0%, #eae5eb 34%, #f2a46b 70%, #ed8346 100%);
+    padding: 44px 56px; display: flex; flex-direction: column;
+  }
+  .title-card canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .title-card > * { position: relative; }
+  .title-card .logo { height: 34px; align-self: flex-start; margin-bottom: 64px; }
+  .title-card h1 { font-size: 74px; line-height: 1.02; max-width: 13ch; }
+  .title-meta { margin-top: 44px; font-size: 19px; line-height: 1.55; }
+  .title-speakers { margin-top: auto; font-size: 15.5px; }
+  .title-speakers b { font-weight: 700; }
+
+  /* ---- slide 2: the gap ---- */
+  .clusters { display: flex; align-items: stretch; gap: 22px; }
+  .cluster {
+    flex: 1; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 16px; padding: 22px 24px;
+  }
+  .cluster h3 {
+    font-size: 13.5px; font-weight: 700; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--slate); margin-bottom: 16px;
+  }
+  .cluster h3 b { color: var(--ink); }
+  .row {
+    display: flex; align-items: center; gap: 12px;
+    font-family: var(--mono); font-size: 17px;
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+    color: var(--ink);
+  }
+  .row:last-child { margin-bottom: 0; }
+  .row .tick { flex: none; width: 24px; text-align: center; font-family: var(--grotesk); font-weight: 700; }
+  .row .tick.good { color: var(--green); }
+  .row.missing { background: transparent; border: 1.5px dashed var(--orange); color: var(--slate); }
+  .row.missing .tick { color: var(--red); }
+  .row .role-principal { color: var(--red); }
+  .flow { flex: none; width: 108px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+  .flow .label {
+    font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--slate); text-align: center; line-height: 1.5;
+  }
+  .verdict { margin-top: 26px; display: flex; gap: 22px; }
+  .verdict > div { flex: 1; border-radius: 12px; padding: 17px 22px; font-size: 19px; display: flex; align-items: baseline; gap: 12px; }
+  .verdict .good { background: #e9f3ec; color: #14532d; }
+  .verdict .bad { background: var(--peach); color: #8c1d05; }
+  .verdict b { font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; flex: none; }
+  .verdict .good b { color: var(--green); }
+  .verdict .bad b { color: var(--red); }
+
+  /* ---- slide 3: config ---- */
+  .split { display: flex; gap: 48px; align-items: flex-start; }
+  .codeblock {
+    flex: 1.12; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 16px; padding: 26px 30px; overflow-x: auto;
+  }
+  .codeblock pre { font-family: var(--mono); font-size: 18.5px; line-height: 1.65; white-space: pre; color: var(--ink); }
+  .codeblock .s { color: var(--green); }
+  .codeblock .c { color: var(--slate); }
+  .codeblock .hl { background: var(--butter); border-radius: 4px; padding: 1px 4px; }
+  .rules { flex: 1; display: flex; flex-direction: column; gap: 22px; padding-top: 4px; }
+  .rule { border-left: 3px solid var(--red); padding: 2px 0 2px 20px; font-size: 20px; line-height: 1.45; }
+  .rule b { font-weight: 700; }
+  .rule code { background: var(--wash); border: 1px solid var(--line); border-radius: 5px; padding: 1px 7px; font-size: 17px; }
+  .rule .why { display: block; margin-top: 5px; font-size: 16.5px; color: var(--slate); }
+
+  /* ---- slide: what role sync does ---- */
+  .verbs { display: flex; gap: 18px; margin-bottom: 26px; }
+  .verb {
+    flex: 1; background: var(--wash); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 18px; font-size: 19px;
+  }
+  .verb b { font-family: var(--mono); font-size: 16px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--red); display: block; margin-bottom: 4px; }
+  .what-split { display: flex; gap: 22px; align-items: stretch; }
+  .authority {
+    flex: 1.15; background: var(--peach); border-radius: 16px; padding: 22px 26px;
+  }
+  .authority h4 { font-size: 21px; font-weight: 700; margin-bottom: 10px; }
+  .authority p { font-size: 18.5px; line-height: 1.5; }
+  .authority p + p { margin-top: 8px; }
+  .bounds { flex: 1; display: flex; flex-direction: column; gap: 14px; }
+  .bound {
+    background: var(--wash); border: 1px solid var(--line); border-radius: 12px;
+    padding: 13px 18px; font-size: 17.5px; line-height: 1.45;
+  }
+  .bound b { display: block; font-size: 15px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--ink); margin-bottom: 2px; }
+
+  /* ---- slide: how it reads roles ---- */
+  .wire { display: flex; align-items: center; gap: 0; margin-bottom: 26px; }
+  .wirebox {
+    background: var(--wash); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 26px; text-align: center; flex: 1;
+  }
+  .wirebox b { display: block; font-size: 20px; font-weight: 700; }
+  .wirebox span { font-size: 15px; color: var(--slate); }
+  .wirelabel { flex: 1.3; text-align: center; position: relative; padding: 0 10px; }
+  .wirelabel code {
+    display: inline-block; background: #fff; border: 1.5px solid var(--red);
+    color: var(--red); border-radius: 999px; padding: 6px 16px; font-size: 16.5px;
+    position: relative; z-index: 1;
+  }
+  .wirelabel small { display: block; margin-top: 6px; font-size: 13px; color: var(--slate);
+    letter-spacing: .08em; text-transform: uppercase; font-weight: 700; }
+  .wirelabel::before { content: ""; position: absolute; left: 0; right: 0; top: 17px;
+    border-top: 2.5px dashed var(--red); }
+  .hows { display: flex; gap: 18px; margin-bottom: 22px; }
+  .how { flex: 1; border-left: 3px solid var(--orange); padding-left: 16px;
+    font-size: 17px; line-height: 1.45; }
+  .how b { display: block; margin-bottom: 3px; font-size: 17.5px; }
+  .consequence {
+    background: var(--peach); border-radius: 12px; padding: 15px 22px;
+    font-size: 18.5px; line-height: 1.45;
+  }
+  .consequence b { color: var(--red); }
+
+  /* ---- slide 4: divider (full-bleed red) ---- */
+  .divider { background: var(--red); color: #fff; align-items: center; justify-content: center; text-align: center; }
+  .divider h2 { font-size: 84px; margin-bottom: 26px; color: #fff; }
+  .divider p { font-size: 21px; color: rgba(255,255,255,.92); }
+  .divider p code { font-size: 19px; color: var(--butter); }
+  .divider .video-link {
+    margin-top: 42px; display: inline-flex; align-items: center; gap: 10px;
+    font-family: var(--grotesk); font-weight: 700; font-size: 19px;
+    color: #fff; text-decoration: none;
+    border: 1.5px solid rgba(255,255,255,.75); border-radius: 999px;
+    padding: 13px 30px;
+    transition: background .15s ease, color .15s ease;
+  }
+  .divider .video-link:hover, .divider .video-link:focus-visible {
+    background: #fff; color: var(--red); outline: none;
+  }
+
+  /* ---- slide 5: task states (matrix-slide table language) ---- */
+  .matrix { border-collapse: collapse; width: 100%; }
+  .matrix th {
+    background: var(--orange); color: #fff; text-align: left;
+    font-size: 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    padding: 13px 20px;
+  }
+  .matrix th:first-child { border-radius: 10px 0 0 10px; }
+  .matrix th:last-child { border-radius: 0 10px 10px 0; }
+  .matrix td { padding: 15px 20px; font-size: 18.5px; line-height: 1.4; vertical-align: middle; }
+  .matrix td:first-child { border-right: 1.5px solid var(--ink); font-family: var(--mono); font-size: 15.5px; white-space: nowrap; width: 300px; }
+  .matrix tr + tr td { border-top: 1px solid var(--line); }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 10px; vertical-align: 1px; }
+  .dot.g { background: var(--green); } .dot.y { background: #eab308; }
+  .dot.r { background: var(--red); } .dot.b { background: #0097a7; }
+  .footnote { margin-top: auto; padding-top: 18px; font-size: 16px; color: var(--slate); }
+  .footnote b { color: var(--ink); font-weight: 700; }
+  .footnote code { font-size: 14.5px; }
+
+  /* ---- chrome ---- */
+  .progress { position: absolute; top: 0; left: 0; height: 3px; background: var(--red); transition: width .25s ease; z-index: 6; }
+  .hint {
+    position: absolute; bottom: 27px; right: 120px; z-index: 5;
+    font-size: 11px; color: var(--slate); font-family: var(--grotesk);
+  }
+  body.on-divider .hint { color: rgba(255,255,255,.7); }
+  body.on-divider .progress { background: var(--butter); }
+  .split .matrix td:first-child { font-family: var(--grotesk); font-size: 17px;
+    white-space: normal; width: auto; font-weight: 700; }
+  .navbtn { position: absolute; top: 0; bottom: 0; width: 15%; z-index: 4; background: transparent; border: 0; cursor: pointer; }
+  .navbtn:focus-visible { outline: 2px solid var(--red); outline-offset: -6px; }
+  .navbtn.prev { left: 0; } .navbtn.next { right: 0; }
+</style>
+
+<div class="stage-wrap">
+  <div class="stage" id="stage">
+    <div class="progress" id="progress"></div>
+
+    <!-- 1 · TITLE -->
+    <section class="slide title-slide active">
+      <div class="title-card">
+        <canvas id="mosaic" width="1232" height="672"></canvas>
+        <img class="logo logo-color" alt="Redpanda">
+        <h1>Shadowing Redpanda Roles</h1>
+        <div class="title-meta">
+          TOI · Shadow Linking Role Sync<br>
+          Redpanda v26.2 · July 2026
+        </div>
+        <div class="title-speakers">Andrew Nguyen <b>Core Engineering</b></div>
+      </div>
+    </section>
+
+    <!-- 2 · THE GAP -->
+    <section class="slide">
+      <div class="eyebrow">01 — Why</div>
+      <h2>Synced ACLs were inert without their roles</h2>
+      <div class="clusters">
+        <div class="cluster">
+          <h3><b>Source</b> · production</h3>
+          <div class="row"><span class="tick good">✓</span>ACL: allow <span class="role-principal">RedpandaRole:analysts</span></div>
+          <div class="row"><span class="tick good">✓</span>Role: analysts {alice, bob}</div>
+        </div>
+        <div class="flow">
+          <div class="label">shadow<br>link</div>
+          <svg width="64" height="18" viewBox="0 0 64 18" aria-hidden="true">
+            <line x1="0" y1="9" x2="52" y2="9" stroke="#e2401b" stroke-width="2.5"/>
+            <path d="M50 2 L63 9 L50 16 Z" fill="#e2401b"/>
+          </svg>
+          <div class="label">ACLs synced<br>roles… not</div>
+        </div>
+        <div class="cluster">
+          <h3><b>Shadow</b> · DR</h3>
+          <div class="row"><span class="tick good">✓</span>ACL: allow <span class="role-principal">RedpandaRole:analysts</span></div>
+          <div class="row missing"><span class="tick">✗</span>Role: analysts — missing</div>
+        </div>
+      </div>
+      <div class="verdict">
+        <div class="good"><b>Source</b> alice produces to pageviews — allowed</div>
+        <div class="bad"><b>Shadow · after failover</b> same request — denied</div>
+      </div>
+      <div class="foot">
+        <img class="logo-color" alt="">
+        <span>© 2026 Redpanda Data</span><span class="num">2</span>
+      </div>
+    </section>
+
+    <!-- 3 · WHAT ROLE SYNC DOES -->
+    <section class="slide">
+      <div class="eyebrow">02 — What</div>
+      <h2>A full mirror, within a filter scope</h2>
+      <div class="verbs">
+        <div class="verb"><b>Create</b>In scope on source, missing on shadow → created with members</div>
+        <div class="verb"><b>Update</b>Membership differs → overwritten to match the source</div>
+        <div class="verb"><b>Delete</b>On shadow but gone from source → removed</div>
+      </div>
+      <div class="what-split">
+        <div class="authority">
+          <h4>In scope, the source is authoritative</h4>
+          <p>Add a member directly on the shadow → <b>stripped</b> on the next sync.
+             Delete an in-scope role on the shadow → <b>recreated</b>.</p>
+          <p>Roles outside the filter are never read, created, modified, or deleted.
+             The filter is your blast-radius control.</p>
+        </div>
+        <div class="bounds">
+          <div class="bound"><b>Redpanda → Redpanda only</b>
+            Non-Redpanda source: task parks, rest of the link unaffected (next slide).</div>
+          <div class="bound"><b>Credentials are not synced — by design</b>
+            Pre-provision identities on the shadow; role sync mirrors membership.</div>
+          <div class="bound"><b>Opt-in</b>
+            Empty filters → nothing syncs. The task stays ACTIVE and does nothing.</div>
+        </div>
+      </div>
+      <div class="foot">
+        <img class="logo-color" alt="">
+        <span>© 2026 Redpanda Data</span><span class="num">3</span>
+      </div>
+    </section>
+
+    <!-- 4 · HOW IT READS ROLES -->
+    <section class="slide">
+      <div class="eyebrow">03 — How</div>
+      <h2>One new Kafka API, in a reserved range</h2>
+      <div class="wire">
+        <div class="wirebox"><b>Shadow cluster</b><span>roles migrator task</span></div>
+        <div class="wirelabel">
+          <code>DescribeRedpandaRoles · key 15000</code>
+          <small>over the source's Kafka listener</small>
+        </div>
+        <div class="wirebox"><b>Source cluster</b><span>Redpanda 26.2+</span></div>
+      </div>
+      <div class="hows">
+        <div class="how"><b>Nothing standard to read</b>
+          Roles aren't in the Kafka data model — its security surface is ACLs, SCRAM, tokens, quotas.</div>
+        <div class="how"><b>Why a Kafka API</b>
+          The Admin API isn't reachable cross-cluster and isn't exposed in BYOC. The Kafka
+          listener is the surface the link already uses.</div>
+        <div class="how"><b>Zero new permissions</b>
+          Authorized by cluster DESCRIBE — the same gate as DescribeAcls, which the link
+          principal already holds.</div>
+      </div>
+      <div class="consequence"><b>Consequence:</b> Apache Kafka / Confluent sources can't answer
+        key 15000 → the role-sync task parks <b>LINK_UNAVAILABLE</b>; topic, ACL, and schema
+        registry sync continue untouched. Role shadowing is Redpanda↔Redpanda DR.</div>
+      <div class="foot">
+        <img class="logo-color" alt="">
+        <span>© 2026 Redpanda Data</span><span class="num">4</span>
+      </div>
+    </section>
+
+    <!-- 5 · CONFIG -->
+    <section class="slide">
+      <div class="eyebrow">04 — Opting in</div>
+      <h2>Filters are the blast-radius control</h2>
+      <div class="split">
+        <div class="codeblock"><pre>name: <span class="s">prod-shadow-link</span>
+<span class="c"># …topic / consumer / security sync options…</span>
+role_sync_options:
+  interval: <span class="s">30s</span>
+  role_name_filters:
+    - pattern_type: <span class="s">LITERAL</span>
+      filter_type: <span class="s">INCLUDE</span>
+      name: <span class="s">'*'</span>  <span class="c"><span class="hl">wildcard: every role</span></span></pre></div>
+        <div class="rules">
+          <div class="rule"><b>Empty filters → nothing syncs.</b>
+            <span class="why">Role sync is opt-in: at least one INCLUDE.</span></div>
+          <div class="rule"><code>LITERAL '*'</code> is the only wildcard.
+            <span class="why">Under PREFIX, <code>*</code> is just a character.</span></div>
+          <div class="rule">In scope, <b>the source is authoritative</b>.
+            <span class="why">Created, updated — and deleted — to match the source.</span></div>
+        </div>
+      </div>
+      <div class="foot">
+        <img class="logo-color" alt="">
+        <span>© 2026 Redpanda Data</span><span class="num">5</span>
+      </div>
+    </section>
+
+    <!-- 6 · DIVIDER -->
+    <section class="slide divider">
+      <h2>Demo</h2>
+      <p>Two clusters, one link — create · converge · <code>delete</code></p>
+      <a class="video-link" href="https://drive.google.com/file/d/14H8Yg9Om6Epx_a_HHOsvG51v5kKptwPA/view?usp=drive_link" target="_blank" rel="noopener">▶&nbsp;&nbsp;Watch the demo recording</a>
+      <div class="foot">
+        <img class="logo-white" alt="">
+        <span>© 2026 Redpanda Data</span><span class="num">6</span>
+      </div>
+    </section>
+
+    <button class="navbtn prev" id="prev" aria-label="Previous slide"></button>
+    <button class="navbtn next" id="next" aria-label="Next slide"></button>
+    <div class="hint">←/→ to navigate</div>
+  </div>
+</div>
+
+<script>
+  const LOGO_COLOR = 'data:image/png;base64,__LOGO_COLOR_B64__';
+  const LOGO_WHITE = 'data:image/png;base64,__LOGO_WHITE_B64__';
+  document.querySelectorAll('.logo-color').forEach(i => i.src = LOGO_COLOR);
+  document.querySelectorAll('.logo-white').forEach(i => i.src = LOGO_WHITE);
+
+  const slides = [...document.querySelectorAll('.slide')];
+  const progress = document.getElementById('progress');
+  const stage = document.getElementById('stage');
+  let cur = 0;
+
+  function go(n) {
+    cur = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, i) => s.classList.toggle('active', i === cur));
+    document.body.classList.toggle('on-divider', slides[cur].classList.contains('divider'));
+    progress.style.width = ((cur + 1) / slides.length * 100) + '%';
+  }
+  addEventListener('keydown', (e) => {
+    if (['ArrowRight', ' ', 'PageDown'].includes(e.key)) { go(cur + 1); e.preventDefault(); }
+    else if (['ArrowLeft', 'PageUp'].includes(e.key)) { go(cur - 1); e.preventDefault(); }
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(slides.length - 1);
+  });
+  document.getElementById('prev').addEventListener('click', () => go(cur - 1));
+  document.getElementById('next').addEventListener('click', () => go(cur + 1));
+
+  function fit() {
+    const s = Math.min(innerWidth / 1280, innerHeight / 720);
+    stage.style.transform = 'scale(' + s + ')';
+  }
+  addEventListener('resize', fit);
+  fit();
+  go(0);
+
+  /* pixel-mosaic motif on the title card: white data blocks scattering,
+     denser toward the orange edge — mirrors the template's hero texture */
+  (function () {
+    const cv = document.getElementById('mosaic');
+    const ctx = cv.getContext('2d');
+    const cell = 14, gap = 2;
+    let seed = 42;
+    const rand = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    for (let x = 0; x < cv.width; x += cell) {
+      for (let y = 0; y < cv.height; y += cell) {
+        const t = x / cv.width;                  // 0 → left, 1 → right
+        const p = Math.pow(t, 2.6) * 0.42;       // density ramps toward the right
+        if (rand() < p) {
+          const a = 0.25 + rand() * 0.65;
+          ctx.fillStyle = rand() < 0.06 ? 'rgba(255,236,137,' + a + ')' : 'rgba(255,255,255,' + a + ')';
+          ctx.fillRect(x, y, cell - gap, cell - gap);
+        }
+      }
+    }
+  })();
+</script>

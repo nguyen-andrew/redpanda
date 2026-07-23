@@ -1,0 +1,15 @@
+diff --git a/src/v/config/configuration.cc b/src/v/config/configuration.cc
+index c44d9d415c..cc37978151 100644
+--- a/src/v/config/configuration.cc
++++ b/src/v/config/configuration.cc
+@@ -5297,7 +5297,9 @@ configuration::configuration()
+       "configuration option to the current unix epoch expressed in seconds. "
+       "The value must be within one hour of the current time on the broker."
+       "Once experimental features are enabled they cannot be disabled.",
+-      {.needs_restart = needs_restart::no, .visibility = visibility::tunable},
++      {.needs_restart = needs_restart::no,
++       .visibility = visibility::tunable,
++       .usable_before_ready = usable_before_ready::yes},
+       "",
+       [this](const ss::sstring& v) -> std::optional<ss::sstring> {
+           if (development_features_enabled()) {

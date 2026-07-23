@@ -1,0 +1,32 @@
+# Shadow link config for the role-sync TOI demo (rpk shadow create --config-file).
+# Field names/enums per src/go/rpk/pkg/cli/shadow/types.go (UPPERCASE enums,
+# same as `rpk shadow config generate` output).
+name: demo-link
+client_options:
+  bootstrap_servers:
+    - SRC_KAFKA_ADDR   # replaced with $SRC_KAFKA by stage.sh provision
+  # The link principal: a plain user on the SOURCE holding cluster DESCRIBE
+  # (the same grant ACL sync already needs — role sync adds no new one).
+  authentication_configuration:
+    scram_configuration:
+      username: link-user
+      password: link-pass
+      scram_mechanism: SCRAM-SHA-256
+security_sync_options:
+  interval: 5s
+  acl_filters:
+    # Scoped to the demo role's principal so the shadow's ACL list stays
+    # clean (otherwise the link principal's own cluster-DESCRIBE grant is
+    # mirrored too — ACL filters are include-only, so "everything except
+    # link-user" is not expressible). Production DR would typically mirror
+    # ALL ACLs with a match-all filter here.
+    - resource_filter:
+        resource_type: ANY
+        pattern_type: ANY
+      access_filter:
+        principal: RedpandaRole:in-scope-role
+        operation: ANY
+        permission_type: ANY
+# role_sync_options is deliberately ABSENT: enabling role sync is a live
+# demo step (beat 2), applied via `rpk shadow update` with the
+# lib/editor-add-role-sync.sh shim. reset.sh reverts it the same way.
