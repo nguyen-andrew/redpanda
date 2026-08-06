@@ -20,9 +20,12 @@
 
 #include <openssl/bio.h>
 #include <openssl/bn.h>
+#include <openssl/core_names.h>
 #include <openssl/evp.h>
 #include <openssl/param_build.h>
 #include <openssl/pem.h>
+
+#include <algorithm>
 
 namespace crypto {
 
@@ -68,7 +71,8 @@ key::impl::impl(
   _private, internal::EVP_PKEY_ptr pkey, is_private_key_t is_private_key)
   : _pkey(std::move(pkey))
   , _is_private_key(is_private_key) {
-    static const absl::flat_hash_set<int> supported_key_types{EVP_PKEY_RSA};
+    static const absl::flat_hash_set<int> supported_key_types{
+      EVP_PKEY_RSA, EVP_PKEY_EC};
 
     auto key_type = EVP_PKEY_get_base_id(_pkey.get());
 
@@ -84,6 +88,8 @@ key_type key::impl::get_key_type() const {
     switch (key_type) {
     case EVP_PKEY_RSA:
         return key_type::RSA;
+    case EVP_PKEY_EC:
+        return key_type::EC;
     }
 
     vunreachable("Unsupported key type {}", key_type);
@@ -168,6 +174,109 @@ key::impl::load_rsa_public_key(bytes_view n, bytes_view e) {
       _private{}, std::move(pkey_ptr), is_private_key_t::no);
 }
 
+namespace {
+constexpr std::string_view group_name(ec_curve c) {
+    switch (c) {
+    case ec_curve::P256:
+        return "P-256";
+    case ec_curve::P384:
+        return "P-384";
+    case ec_curve::P521:
+        return "P-521";
+    }
+
+    vunreachable("Unknown ec_curve {}", static_cast<int>(c));
+}
+
+constexpr size_t field_width(ec_curve c) {
+    switch (c) {
+    case ec_curve::P256:
+        return 32;
+    case ec_curve::P384:
+        return 48;
+    case ec_curve::P521:
+        return 66;
+    }
+
+    vunreachable("Unknown ec_curve {}", static_cast<int>(c));
+}
+} // namespace
+
+std::unique_ptr<key::impl>
+key::impl::load_ec_public_key(ec_curve curve, bytes_view x, bytes_view y) {
+    const auto width = field_width(curve);
+    if (x.size() != width || y.size() != width) {
+        throw exception(
+          fmt::format(
+            "Invalid EC coordinate width for {}: x={} y={} expected={}",
+            curve,
+            x.size(),
+            y.size(),
+            width));
+    }
+    // SEC1 uncompressed point: 0x04 || X || Y.  OpenSSL 3's EC keymgmt
+    // imports the encoded point via "pub"; separate qx/qy are get-only.
+    bytes pub(bytes::initialized_later{}, 1 + 2 * width);
+    pub[0] = 0x04;
+    std::copy(x.begin(), x.end(), pub.begin() + 1);
+    std::copy(y.begin(), y.end(), pub.begin() + 1 + width);
+
+    auto param_bld = internal::OSSL_PARAM_BLD_ptr(OSSL_PARAM_BLD_new());
+    const auto group = group_name(curve);
+    if (
+      !param_bld
+      || !OSSL_PARAM_BLD_push_utf8_string(
+        param_bld.get(), OSSL_PKEY_PARAM_GROUP_NAME, group.data(), group.size())
+      || !OSSL_PARAM_BLD_push_octet_string(
+        param_bld.get(), OSSL_PKEY_PARAM_PUB_KEY, pub.data(), pub.size())) {
+        throw internal::ossl_error("Failed to build EC key parameters");
+    }
+
+    auto params = internal::OSSL_PARAM_ptr(
+      OSSL_PARAM_BLD_to_param(param_bld.get()));
+    if (!params) {
+        throw internal::ossl_error("Failed to create parameters from builder");
+    }
+
+    auto ctx = internal::EVP_PKEY_CTX_ptr(
+      EVP_PKEY_CTX_new_from_name(nullptr, "EC", nullptr));
+    if (!ctx) {
+        throw internal::ossl_error("Failed to create EC PKEY context");
+    }
+
+    if (EVP_PKEY_fromdata_init(ctx.get()) != 1) {
+        throw internal::ossl_error("Failed to initialize EVP PKEY from data");
+    }
+
+    EVP_PKEY* pkey = nullptr;
+
+    if (
+      1
+      != EVP_PKEY_fromdata(
+        ctx.get(), &pkey, EVP_PKEY_PUBLIC_KEY, params.get())) {
+        throw internal::ossl_error(
+          "Failed to load EC public key from parameters");
+    }
+
+    auto pkey_ptr = internal::EVP_PKEY_ptr(pkey);
+    {
+        // EVP_PKEY_fromdata already rejects off-curve points; this check is
+        // kept for parity with the RSA loader above.
+        //
+        // For some reason, even though the original PKEY_CTX was used to load
+        // the key, it's not 'saved' within that ctx so we need to create a
+        // _new_ one to verify that the key was good
+        auto verify_ctx = internal::EVP_PKEY_CTX_ptr(
+          EVP_PKEY_CTX_new_from_pkey(nullptr, pkey_ptr.get(), nullptr));
+        if (1 != EVP_PKEY_public_check(verify_ctx.get())) {
+            throw internal::ossl_error("Failed EC public key validation");
+        }
+    }
+
+    return std::make_unique<key::impl>(
+      _private{}, std::move(pkey_ptr), is_private_key_t::no);
+}
+
 key::key(std::unique_ptr<impl>&& impl)
   : _impl(std::move(impl)) {}
 
@@ -196,5 +305,17 @@ key key::load_rsa_public_key(std::string_view n, std::string_view e) {
     return key::load_rsa_public_key(
       internal::string_view_to_bytes_view(n),
       internal::string_view_to_bytes_view(e));
+}
+
+key key::load_ec_public_key(ec_curve curve, bytes_view x, bytes_view y) {
+    return key{key::impl::load_ec_public_key(curve, x, y)};
+}
+
+key key::load_ec_public_key(
+  ec_curve curve, std::string_view x, std::string_view y) {
+    return key::load_ec_public_key(
+      curve,
+      internal::string_view_to_bytes_view(x),
+      internal::string_view_to_bytes_view(y));
 }
 } // namespace crypto

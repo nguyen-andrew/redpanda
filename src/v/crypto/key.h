@@ -35,6 +35,8 @@ public:
     load_der_key(bytes_view key, is_private_key_t is_private_key);
     static std::unique_ptr<impl>
     load_rsa_public_key(bytes_view n, bytes_view e);
+    static std::unique_ptr<impl>
+    load_ec_public_key(ec_curve curve, bytes_view x, bytes_view y);
 
     key_type get_key_type() const;
     is_private_key_t is_private_key() const { return _is_private_key; }

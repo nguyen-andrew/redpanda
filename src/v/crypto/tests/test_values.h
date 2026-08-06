@@ -126,6 +126,12 @@ const auto rsa_pub_key_n = convert_from_hex(
 
 const auto rsa_pub_key_e = convert_from_hex("748d77");
 
+// RFC 7515 A.3 EC P-256 public key coordinates
+const auto ec_p256_pub_x = convert_from_hex(
+  "7fcdce2770f6c45d4183cbee6fdb4b7b580733357be9ef13bacf6e3c7bd15445");
+const auto ec_p256_pub_y = convert_from_hex(
+  "c7f144cd1bbd9b7e872cdfedb9eeb9f4b3695d6ea90b24ad8a4623288588e5ad");
+
 const auto sig_test_rsa_pub_key_n = convert_from_hex(
   "c47abacc2a84d56f3614d92fd62ed36ddde459664b9301dcd1d61781cfcc026bcb2399bee7e7"
   "5681a80b7bf500e2d08ceae1c42ec0b707927f2b2fe92ae852087d25f1d260cc74905ee5f9b2"

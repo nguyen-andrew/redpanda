@@ -176,12 +176,11 @@ TEST_P_CORO(ossl_context_test_framework_param, keys) {
     EXPECT_EQ(key.get_type(), crypto::key_type::RSA);
     EXPECT_FALSE(key.is_private_key());
 
-    EXPECT_THROW(
-      crypto::key::load_key(
-        example_pem_ec_public_key,
-        crypto::format_type::PEM,
-        crypto::is_private_key_t::no),
-      crypto::exception);
+    auto ec_key = crypto::key::load_key(
+      example_pem_ec_public_key,
+      crypto::format_type::PEM,
+      crypto::is_private_key_t::no);
+    EXPECT_EQ(ec_key.get_type(), crypto::key_type::EC);
 
     EXPECT_NO_THROW(
       crypto::key::load_rsa_public_key(rsa_pub_key_n, rsa_pub_key_e));

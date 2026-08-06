@@ -41,15 +41,44 @@ TEST(crypto_key, load_pem_public_key) {
 }
 
 TEST(crypto_key, load_ec_key) {
-    EXPECT_THROW(
-      crypto::key::load_key(
-        example_pem_ec_public_key,
-        crypto::format_type::PEM,
-        crypto::is_private_key_t::no),
-      crypto::exception);
+    auto ec_key = crypto::key::load_key(
+      example_pem_ec_public_key,
+      crypto::format_type::PEM,
+      crypto::is_private_key_t::no);
+    EXPECT_EQ(ec_key.get_type(), crypto::key_type::EC);
 }
 
 TEST(crypto_key, load_rsa_pub_key_components) {
     EXPECT_NO_THROW(
       crypto::key::load_rsa_public_key(rsa_pub_key_n, rsa_pub_key_e));
+}
+
+TEST(crypto_key, load_ec_pub_key_components) {
+    auto key = crypto::key::load_ec_public_key(
+      crypto::ec_curve::P256, ec_p256_pub_x, ec_p256_pub_y);
+    EXPECT_EQ(key.get_type(), crypto::key_type::EC);
+    EXPECT_FALSE(key.is_private_key());
+}
+
+TEST(crypto_key, load_ec_pub_key_bad_width) {
+    auto short_x = bytes{ec_p256_pub_x.begin(), ec_p256_pub_x.end() - 1};
+    EXPECT_THROW(
+      crypto::key::load_ec_public_key(
+        crypto::ec_curve::P256, short_x, ec_p256_pub_y),
+      crypto::exception);
+
+    // P-256 coordinates (32 bytes) against P-384's 48 byte field width
+    EXPECT_THROW(
+      crypto::key::load_ec_public_key(
+        crypto::ec_curve::P384, ec_p256_pub_x, ec_p256_pub_y),
+      crypto::exception);
+}
+
+TEST(crypto_key, load_ec_pub_key_invalid_point) {
+    auto bad_y = ec_p256_pub_y;
+    bad_y[bad_y.size() - 1] ^= 0x01;
+    EXPECT_THROW(
+      crypto::key::load_ec_public_key(
+        crypto::ec_curve::P256, ec_p256_pub_x, bad_y),
+      crypto::exception);
 }

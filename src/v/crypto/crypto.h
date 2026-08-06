@@ -261,6 +261,19 @@ public:
      */
     static key load_rsa_public_key(bytes_view n, bytes_view e);
     static key load_rsa_public_key(std::string_view n, std::string_view e);
+    /**
+     * Loads an EC public key from its curve and affine coordinates
+     *
+     * @param curve The named curve
+     * @param x Big-endian X coordinate, exactly the curve's field width
+     *          (32/48/66 bytes for P-256/P-384/P-521)
+     * @param y Big-endian Y coordinate, same width rule
+     * @return key The loaded key
+     * @throws crypto::exception On wrong width or invalid point
+     */
+    static key load_ec_public_key(ec_curve curve, bytes_view x, bytes_view y);
+    static key
+    load_ec_public_key(ec_curve curve, std::string_view x, std::string_view y);
     ~key() noexcept;
     key(const key&) = delete;
     key& operator=(const key&) = delete;

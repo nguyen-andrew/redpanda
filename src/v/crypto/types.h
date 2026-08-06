@@ -35,14 +35,30 @@ inline fmt::iterator format_to(digest_type t, fmt::iterator out) {
     return fmt::format_to(out, "unknown_digest_type");
 }
 
-enum class key_type { RSA };
+enum class key_type { RSA, EC };
 
 inline fmt::iterator format_to(key_type t, fmt::iterator out) {
     switch (t) {
     case key_type::RSA:
         return fmt::format_to(out, "RSA");
+    case key_type::EC:
+        return fmt::format_to(out, "EC");
     }
     return fmt::format_to(out, "unknown_key_type");
+}
+
+enum class ec_curve { P256, P384, P521 };
+
+inline fmt::iterator format_to(ec_curve c, fmt::iterator out) {
+    switch (c) {
+    case ec_curve::P256:
+        return fmt::format_to(out, "P-256");
+    case ec_curve::P384:
+        return fmt::format_to(out, "P-384");
+    case ec_curve::P521:
+        return fmt::format_to(out, "P-521");
+    }
+    return fmt::format_to(out, "unknown_ec_curve");
 }
 
 enum class format_type { PEM, DER };
