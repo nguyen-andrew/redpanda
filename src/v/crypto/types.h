@@ -19,7 +19,7 @@
 #include <string_view>
 
 namespace crypto {
-enum class digest_type { MD5, SHA256, SHA512 };
+enum class digest_type { MD5, SHA256, SHA384, SHA512 };
 
 inline fmt::iterator format_to(digest_type t, fmt::iterator out) {
     switch (t) {
@@ -27,6 +27,8 @@ inline fmt::iterator format_to(digest_type t, fmt::iterator out) {
         return fmt::format_to(out, "MD5");
     case digest_type::SHA256:
         return fmt::format_to(out, "SHA256");
+    case digest_type::SHA384:
+        return fmt::format_to(out, "SHA384");
     case digest_type::SHA512:
         return fmt::format_to(out, "SHA512");
     }

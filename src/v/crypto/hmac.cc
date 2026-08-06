@@ -126,6 +126,8 @@ private:
             return "MD5";
         case digest_type::SHA256:
             return "SHA256";
+        case digest_type::SHA384:
+            return "SHA384";
         case digest_type::SHA512:
             return "SHA512";
         }

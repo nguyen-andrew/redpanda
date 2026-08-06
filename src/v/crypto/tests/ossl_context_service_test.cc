@@ -197,6 +197,12 @@ TEST_P_CORO(ossl_context_test_framework_param, sigver) {
     EXPECT_NO_THROW(EXPECT_FALSE(
       crypto::verify_signature(
         crypto::digest_type::SHA256, key, sig_bad_msg, sig_bad_sig)));
+
+    // SHA-384 must classify as a FIPS-provider digest (would vassert if
+    // the provider-name callback doesn't recognize it)
+    EXPECT_EQ(
+      crypto::digest_ctx::size(crypto::digest_type::SHA384), size_t(48));
+    EXPECT_NO_THROW(crypto::digest(crypto::digest_type::SHA384, sig_good_msg));
     return ss::make_ready_future();
 }
 

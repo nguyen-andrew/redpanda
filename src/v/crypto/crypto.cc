@@ -51,6 +51,7 @@ bool uses_default_provider(digest_type type) {
     case digest_type::MD5:
         return true;
     case digest_type::SHA256:
+    case digest_type::SHA384:
     case digest_type::SHA512:
         return false;
     }
@@ -71,6 +72,9 @@ bool uses_default_provider(const EVP_MD* md) {
                 data->digest_type_set = true;
             } else if (name_str == "SHA256") {
                 data->type = digest_type::SHA256;
+                data->digest_type_set = true;
+            } else if (name_str == "SHA384") {
+                data->type = digest_type::SHA384;
                 data->digest_type_set = true;
             } else if (name_str == "SHA512") {
                 data->type = digest_type::SHA512;

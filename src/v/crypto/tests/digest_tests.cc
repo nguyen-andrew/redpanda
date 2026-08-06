@@ -51,6 +51,13 @@ TEST(crypto_hashing, sha512_one_shot) {
     EXPECT_EQ(result, sha512_expected_val);
 }
 
+TEST(crypto_hashing, sha384_one_shot) {
+    auto result = crypto::digest(crypto::digest_type::SHA384, sha384_test_val);
+    EXPECT_EQ(result, sha384_expected_val);
+    EXPECT_EQ(
+      crypto::digest_ctx::size(crypto::digest_type::SHA384), size_t(48));
+}
+
 TEST(crypto_hashing, sha256_multipart_bytes) {
     crypto::digest_ctx ctx(crypto::digest_type::SHA256);
     ctx.update(sha256_test_val);

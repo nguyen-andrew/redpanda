@@ -35,6 +35,11 @@ const auto sha512_expected_val = convert_from_hex(
   "4551def2f9127386eea8d4dae1ea8d8e49b2add0509f27ccbce7d9e950ac7db01d5bca579c27"
   "1b9f2d806730d88f58252fd0c2587851c3ac8a0e72b4e1dc0da6");
 
+const auto sha384_test_val = convert_from_hex("616263");
+const auto sha384_expected_val = convert_from_hex(
+  "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded163"
+  "1a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7");
+
 const auto hmac_sha256_key = convert_from_hex(
   "9779d9120642797f1747025d5b22b7ac607cab08e1758f2f3a46c8be1e25c53b8c6a8f58ffef"
   "a176");
