@@ -300,9 +300,18 @@ public:
      *
      * @param type The type of signature to verify
      * @param key The key type
-     * @throws crypto::exception On error
+     * @param fmt The encoding of the signatures this context will verify.
+     * P1363 (raw r||s, as used by JOSE/WebCrypto) is only valid for EC keys
+     * @note Under P1363, a signature whose length is not exactly twice the
+     * key's field width verifies false rather than throwing.  Under DER with an
+     * EC key, malformed signature bytes make EVP verification throw instead
+     * @throws crypto::exception On error, or if @p fmt is P1363 and @p key is
+     * not an EC key
      */
-    verify_ctx(digest_type type, const key& key);
+    verify_ctx(
+      digest_type type,
+      const key& key,
+      signature_format fmt = signature_format::DER);
     ~verify_ctx() noexcept;
     verify_ctx(const verify_ctx&) = delete;
     verify_ctx& operator=(const verify_ctx&) = delete;
@@ -348,14 +357,28 @@ private:
  * @param key The key to use
  * @param msg The message to verify
  * @param sig The signature to verify
+ * @param fmt The encoding of @p sig.  P1363 (raw r||s, as used by
+ * JOSE/WebCrypto) is only valid for EC keys
  * @return true If @p sig is a valid signature for @p msg
  * @return false Otherwise
- * @throws crypto::exception On internal error
+ * @note Under P1363, a @p sig whose length is not exactly twice the key's field
+ * width returns false rather than throwing.  Under DER with an EC key,
+ * malformed @p sig bytes make EVP verification throw instead
+ * @throws crypto::exception On internal error, or if @p fmt is P1363 and @p key
+ * is not an EC key
  */
 bool verify_signature(
-  digest_type type, const key& key, bytes_view msg, bytes_view sig);
+  digest_type type,
+  const key& key,
+  bytes_view msg,
+  bytes_view sig,
+  signature_format fmt = signature_format::DER);
 bool verify_signature(
-  digest_type type, const key& key, std::string_view msg, std::string_view sig);
+  digest_type type,
+  const key& key,
+  std::string_view msg,
+  std::string_view sig,
+  signature_format fmt = signature_format::DER);
 
 ///////////////////////////////////////////////////////////////////////////////
 /// DRBG operation

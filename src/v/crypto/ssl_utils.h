@@ -17,6 +17,7 @@
 
 #include <seastar/core/sstring.hh>
 
+#include <openssl/ecdsa.h>
 #include <openssl/evp.h>
 #include <openssl/param_build.h>
 #include <openssl/provider.h>
@@ -47,6 +48,7 @@ using handle = std::unique_ptr<T, deleter<T, fn>>;
 
 using BIO_ptr = handle<BIO, BIO_free_all>;
 using BN_ptr = handle<BIGNUM, BN_free>;
+using ECDSA_SIG_ptr = handle<ECDSA_SIG, ECDSA_SIG_free>;
 using EVP_MD_ptr = handle<EVP_MD, EVP_MD_free>;
 using EVP_MAC_ptr = handle<EVP_MAC, EVP_MAC_free>;
 using EVP_MAC_CTX_ptr = handle<EVP_MAC_CTX, EVP_MAC_CTX_free>;

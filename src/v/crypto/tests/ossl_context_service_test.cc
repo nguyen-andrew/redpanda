@@ -202,6 +202,16 @@ TEST_P_CORO(ossl_context_test_framework_param, sigver) {
     EXPECT_EQ(
       crypto::digest_ctx::size(crypto::digest_type::SHA384), size_t(48));
     EXPECT_NO_THROW(crypto::digest(crypto::digest_type::SHA384, sig_good_msg));
+
+    auto ec_key = crypto::key::load_ec_public_key(
+      crypto::ec_curve::P256, es256_rfc7515_a3_x, es256_rfc7515_a3_y);
+    EXPECT_NO_THROW(EXPECT_TRUE(
+      crypto::verify_signature(
+        crypto::digest_type::SHA256,
+        ec_key,
+        es256_rfc7515_a3_msg,
+        es256_rfc7515_a3_sig_p1363,
+        crypto::signature_format::P1363)));
     return ss::make_ready_future();
 }
 

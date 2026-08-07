@@ -172,5 +172,63 @@ const auto sig_bad_sig = convert_from_hex(
   "068098deedc951060faf7e15b1f0f80ae67ff2ee28a238d80bf72dd71c8d95c79bc156114ece"
   "8ec837573a4b66898d45b45a5eacd0b0e41447d8fa08a367f437645e50c9920b88a16bc08801"
   "47acfb9a79de9e351b3fa00b3f4e9f182f45553dffca55e393c5eab6");
+
+// RFC 7515 A.3 / A.4 ECDSA vectors
+//
+// `msg` is the JWS Signing Input (the ASCII "header.payload"), `sig_p1363` is
+// the JWS Signature segment as-is (raw fixed-width r||s), and `sig_der` is the
+// same (r, s) pair re-encoded as ASN.1/DER by python-cryptography, so the DER
+// form is independent of the C++ converter under test.  RFC 7515 has no ES384
+// example, so the P-384 vector below was generated locally.
+const auto es256_rfc7515_a3_msg = convert_from_hex(
+  "65794a68624763694f694a46557a49314e694a392e65794a7063334d694f694a71623255694c"
+  "41304b49434a6c654841694f6a457a4d4441344d546b7a4f44417344516f67496d6830644841"
+  "364c79396c654746746347786c4c6d4e76625339706331397962323930496a7030636e566c66"
+  "51");
+// Same RFC 7515 A.3 key as ec_p256_pub_x/ec_p256_pub_y above.
+const auto& es256_rfc7515_a3_x = ec_p256_pub_x;
+const auto& es256_rfc7515_a3_y = ec_p256_pub_y;
+const auto es256_rfc7515_a3_sig_p1363 = convert_from_hex(
+  "0ed1215379636c483c2f7f155807d402a3b228033af97c7e17819ac3169ea665c50a07d38c3c"
+  "70e5d8f12daf084a5480a66590c5f293509a8f3f7f8a83a354d5");
+const auto es256_rfc7515_a3_sig_der = convert_from_hex(
+  "304502200ed1215379636c483c2f7f155807d402a3b228033af97c7e17819ac3169ea6650221"
+  "00c50a07d38c3c70e5d8f12daf084a5480a66590c5f293509a8f3f7f8a83a354d5");
+
+const auto es512_rfc7515_a4_msg = convert_from_hex(
+  "65794a68624763694f694a46557a55784d694a392e55474635624739685a41");
+const auto es512_rfc7515_a4_x = convert_from_hex(
+  "01e929050f124fc6bc55c7d5393365df9def4ab0c22cb25798f934eb04e3c6bae3701a57a791"
+  "0e9d81bf363159e8ebcb155d6349f4bdb6ccf8a94c5c59c7aac101a4");
+const auto es512_rfc7515_a4_y = convert_from_hex(
+  "0034a6440e376750d2371fd1bdc2c8f3b71d2f4ee5ea3432c815cca31560fe5d9387ec774b55"
+  "838630e5cbbf5a8cbe0a91dd0064c6999a1f6e6e67faddede4c8c8f6");
+const auto es512_rfc7515_a4_sig_p1363 = convert_from_hex(
+  "01dc0c81e7abc2d1e887e975f7697ad21a7dc001d915525b2df0ff531322ef47309d93986912"
+  "356ca3d644e73e99966ac2a4f6488f8a183281df85ced1ac3fed776d006f06692c0529d0803d"
+  "98285c3d980496423c45f7c4aa51c1c74e3bc2a9107c098f2a8e8330ceee22af53cbdc9f036b"
+  "9b161b496f444415ee90e5e894bcde3bf267");
+const auto es512_rfc7515_a4_sig_der = convert_from_hex(
+  "308187024201dc0c81e7abc2d1e887e975f7697ad21a7dc001d915525b2df0ff531322ef4730"
+  "9d93986912356ca3d644e73e99966ac2a4f6488f8a183281df85ced1ac3fed776d02416f0669"
+  "2c0529d0803d98285c3d980496423c45f7c4aa51c1c74e3bc2a9107c098f2a8e8330ceee22af"
+  "53cbdc9f036b9b161b496f444415ee90e5e894bcde3bf267");
+
+const auto es384_gen_msg = convert_from_hex(
+  "72656470616e64612065733338342063727970746f2d6c6179657220766563746f72");
+const auto es384_gen_x = convert_from_hex(
+  "67ed04bc0d217c80eb33f51a4121e2e1125117e39916ae40e28dd015a9dc21a5f26b1862574b"
+  "4edaf60531cfe0f7a59f");
+const auto es384_gen_y = convert_from_hex(
+  "fbddffe4a0395da25a562ec0a9a1f2e12163ca5afa2b9b75cff805531d6753364e7b029fe878"
+  "440cda8cc7897684b0ed");
+const auto es384_gen_sig_p1363 = convert_from_hex(
+  "3fc6ebe836f35bfae7aa98ddabc3b68e45fc9381662d1a520b677ce93fedaca85a16c4cc7bd4"
+  "2b6ffcfa6333eedc708953470d1a27bee3ed2a5d602a6c7f90e960211c9f16548dac9f514249"
+  "32774917098100ac5e6fb194f6e44af3f7450006");
+const auto es384_gen_sig_der = convert_from_hex(
+  "306402303fc6ebe836f35bfae7aa98ddabc3b68e45fc9381662d1a520b677ce93fedaca85a16"
+  "c4cc7bd42b6ffcfa6333eedc7089023053470d1a27bee3ed2a5d602a6c7f90e960211c9f1654"
+  "8dac9f51424932774917098100ac5e6fb194f6e44af3f7450006");
 // NOLINTEND
 } // namespace test_values

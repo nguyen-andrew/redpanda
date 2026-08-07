@@ -73,5 +73,17 @@ inline fmt::iterator format_to(format_type t, fmt::iterator out) {
     return fmt::format_to(out, "unknown_format_type");
 }
 
+enum class signature_format { DER, P1363 };
+
+inline fmt::iterator format_to(signature_format f, fmt::iterator out) {
+    switch (f) {
+    case signature_format::DER:
+        return fmt::format_to(out, "DER");
+    case signature_format::P1363:
+        return fmt::format_to(out, "P1363");
+    }
+    return fmt::format_to(out, "unknown_signature_format");
+}
+
 using is_private_key_t = ss::bool_class<struct is_private_key_tag>;
 } // namespace crypto

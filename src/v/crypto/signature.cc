@@ -9,20 +9,36 @@
  * by the Apache License, Version 2.0
  */
 
+#include "base/vassert.h"
 #include "crypto/crypto.h"
 #include "internal.h"
 #include "key.h"
 #include "ssl_utils.h"
 
+#include <openssl/ecdsa.h>
 #include <openssl/evp.h>
+
+#include <tuple>
 
 namespace crypto {
 class verify_ctx::impl {
 public:
-    impl(digest_type type, const key& key)
-      : _ctx(EVP_MD_CTX_new()) {
+    impl(digest_type type, const key& key, signature_format fmt)
+      : _ctx(EVP_MD_CTX_new())
+      , _fmt(fmt) {
         if (!_ctx) {
             throw internal::ossl_error("Failed to create EVP_MD_CTX");
+        }
+
+        if (_fmt == signature_format::P1363) {
+            if (EVP_PKEY_get_base_id(key._impl->get_pkey()) != EVP_PKEY_EC) {
+                throw exception("P1363 signature format requires an EC key");
+            }
+            auto bits = EVP_PKEY_get_bits(key._impl->get_pkey());
+            if (bits <= 0) {
+                throw exception("Failed to determine EC key field width");
+            }
+            _field_width = (bits + 7) / 8;
         }
 
         if (
@@ -45,6 +61,17 @@ public:
     }
 
     bool final(bytes_view sig) {
+        bytes der;
+        if (_fmt == signature_format::P1363) {
+            // exact 2x field width or reject; attacker-controllable input
+            // returns false, it never throws
+            if (sig.size() != 2 * _field_width) {
+                return false;
+            }
+            der = p1363_to_der(sig);
+            sig = der;
+        }
+
         auto verify_result = EVP_DigestVerifyFinal(
           _ctx.get(), sig.data(), sig.size());
         if (verify_result == 1) {
@@ -71,11 +98,44 @@ public:
     }
 
 private:
+    bytes p1363_to_der(bytes_view sig) {
+        vassert(
+          sig.size() == 2 * _field_width,
+          "p1363_to_der caller must length-check, got {}",
+          sig.size());
+        auto r = internal::BN_ptr(
+          BN_bin2bn(sig.data(), static_cast<int>(_field_width), nullptr));
+        auto s = internal::BN_ptr(BN_bin2bn(
+          sig.data() + _field_width, static_cast<int>(_field_width), nullptr));
+        if (!r || !s) {
+            throw internal::ossl_error("Failed to parse ECDSA r/s");
+        }
+        internal::ECDSA_SIG_ptr ec_sig(ECDSA_SIG_new());
+        if (!ec_sig || 1 != ECDSA_SIG_set0(ec_sig.get(), r.get(), s.get())) {
+            throw internal::ossl_error("Failed to construct ECDSA_SIG");
+        }
+        // set0 took ownership
+        std::ignore = r.release();
+        std::ignore = s.release();
+        auto len = i2d_ECDSA_SIG(ec_sig.get(), nullptr);
+        if (len <= 0) {
+            throw internal::ossl_error("Failed to size DER signature");
+        }
+        bytes out(bytes::initialized_later{}, static_cast<size_t>(len));
+        auto* p = out.data();
+        if (i2d_ECDSA_SIG(ec_sig.get(), &p) != len) {
+            throw internal::ossl_error("Failed to encode DER signature");
+        }
+        return out;
+    }
+
     internal::EVP_MD_CTX_ptr _ctx;
+    signature_format _fmt;
+    size_t _field_width{0};
 };
 
-verify_ctx::verify_ctx(digest_type type, const key& key)
-  : _impl(std::make_unique<impl>(type, key)) {}
+verify_ctx::verify_ctx(digest_type type, const key& key, signature_format fmt)
+  : _impl(std::make_unique<impl>(type, key, fmt)) {}
 
 verify_ctx::~verify_ctx() noexcept = default;
 verify_ctx::verify_ctx(verify_ctx&&) noexcept = default;
@@ -109,8 +169,12 @@ bool verify_ctx::reset(std::string_view sig) {
 }
 
 bool verify_signature(
-  digest_type type, const key& key, bytes_view msg, bytes_view sig) { // NOLINT
-    verify_ctx ctx(type, key);
+  digest_type type,
+  const key& key,
+  bytes_view msg, // NOLINT
+  bytes_view sig,
+  signature_format fmt) {
+    verify_ctx ctx(type, key, fmt);
     ctx.update(msg);
     return std::move(ctx).final(sig);
 }
@@ -119,11 +183,13 @@ bool verify_signature(
   digest_type type,
   const key& key,
   std::string_view msg,
-  std::string_view sig) {
+  std::string_view sig,
+  signature_format fmt) {
     return verify_signature(
       type,
       key,
       internal::string_view_to_bytes_view(msg),
-      internal::string_view_to_bytes_view(sig));
+      internal::string_view_to_bytes_view(sig),
+      fmt);
 }
 } // namespace crypto
