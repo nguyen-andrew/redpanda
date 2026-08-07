@@ -20,6 +20,7 @@
 #include "json/pointer.h"
 #include "json/stringbuffer.h"
 #include "json/writer.h"
+#include "security/logger.h"
 #include "security/oidc_error.h"
 #include "strings/string_switch.h"
 #include "strings/utf8.h"
@@ -382,10 +383,12 @@ private:
 
 namespace detail {
 
-template<crypto::digest_type DigestType>
+template<
+  crypto::digest_type DigestType,
+  crypto::signature_format Fmt = crypto::signature_format::DER>
 struct crypto_lib_sig_verifier {
     explicit crypto_lib_sig_verifier(crypto::key&& key)
-      : _ctx(DigestType, key) {}
+      : _ctx(DigestType, key, Fmt) {}
 
     bool operator()(bytes_view msg, bytes_view sig) const {
         return _ctx.update(msg).reset(sig);
@@ -395,9 +398,11 @@ private:
     mutable crypto::verify_ctx _ctx;
 };
 
-template<crypto::digest_type DigestType>
+template<
+  crypto::digest_type DigestType,
+  crypto::signature_format Fmt = crypto::signature_format::DER>
 struct crypto_lib_algorithm {
-    using Verifier = crypto_lib_sig_verifier<DigestType>;
+    using Verifier = crypto_lib_sig_verifier<DigestType, Fmt>;
     using PublicKey = crypto::key;
 };
 
@@ -442,6 +447,31 @@ using rs256_verifier = verifier_impl<
   rs256_str,
   rsa_str>;
 
+// JOSE carries ECDSA signatures as raw r||s (RFC 7515 A.3.1), so the ES
+// verifiers must be built with P1363 rather than the DER default.
+constexpr const char ec_str[] = "EC";
+constexpr const char es256_str[] = "ES256";
+constexpr const char es384_str[] = "ES384";
+constexpr const char es512_str[] = "ES512";
+using es256_verifier = verifier_impl<
+  crypto_lib_algorithm<
+    crypto::digest_type::SHA256,
+    crypto::signature_format::P1363>,
+  es256_str,
+  ec_str>;
+using es384_verifier = verifier_impl<
+  crypto_lib_algorithm<
+    crypto::digest_type::SHA384,
+    crypto::signature_format::P1363>,
+  es384_str,
+  ec_str>;
+using es512_verifier = verifier_impl<
+  crypto_lib_algorithm<
+    crypto::digest_type::SHA512,
+    crypto::signature_format::P1363>,
+  es512_str,
+  ec_str>;
+
 // Verify the signature of a message
 class verifier {
 public:
@@ -463,7 +493,8 @@ public:
     }
 
 private:
-    using verifier_impls = std::variant<rs256_verifier>;
+    using verifier_impls = std::
+      variant<rs256_verifier, es256_verifier, es384_verifier, es512_verifier>;
     verifier_impls _impl;
 };
 
@@ -483,6 +514,61 @@ inline result<verifier> make_rs256_verifier(const json::Value& jwk) {
     }
 }
 
+// crypto::key_type::EC carries no curve, so the JWK is the only place the
+// alg and crv can be checked against each other. A JWK claiming ES256 with
+// a P-384 crv would otherwise load as a working verifier that hashes with
+// the wrong digest. crypto::ec_curve formats as its JWK crv name, so the
+// curve the key is about to be loaded onto is the only thing that says which
+// crv the JWK must declare.
+template<typename VerifierT>
+result<verifier>
+make_es_verifier(const json::Value& jwk, crypto::ec_curve curve) {
+    try {
+        if (detail::string_view(jwk, "kty").value_or("") != ec_str) {
+            return errc::jwk_invalid;
+        }
+        if (
+          detail::string_view(jwk, "crv").value_or("")
+          != fmt::to_string(curve)) {
+            return errc::jwk_invalid;
+        }
+        auto x = detail::base64_url_decode(jwk, "x");
+        auto y = detail::base64_url_decode(jwk, "y");
+        if (!x.has_value() || !y.has_value()) {
+            return errc::jwk_invalid;
+        }
+        auto key = crypto::key::load_ec_public_key(curve, x.value(), y.value());
+        return verifier{VerifierT{std::move(key)}};
+    } catch (const base64_url_decoder_exception& ex) {
+        vlog(
+          seclog.warn,
+          "Failed to load EC JWK kid={}: {}",
+          detail::string_view(jwk, "kid").value_or(""),
+          ex.what());
+        return errc::jwk_invalid;
+    } catch (const crypto::exception& ex) {
+        vlog(
+          seclog.warn,
+          "Failed to load EC JWK kid={}: {}",
+          detail::string_view(jwk, "kid").value_or(""),
+          ex.what());
+        return errc::jwk_invalid;
+    }
+}
+
+// The only callers of make_es_verifier, kept adjacent so that every
+// digest/curve pairing - all of them fixed by RFC 7518 3.4 - is reviewable at
+// a glance.
+inline result<verifier> make_es256_verifier(const json::Value& jwk) {
+    return make_es_verifier<es256_verifier>(jwk, crypto::ec_curve::P256);
+}
+inline result<verifier> make_es384_verifier(const json::Value& jwk) {
+    return make_es_verifier<es384_verifier>(jwk, crypto::ec_curve::P384);
+}
+inline result<verifier> make_es512_verifier(const json::Value& jwk) {
+    return make_es_verifier<es512_verifier>(jwk, crypto::ec_curve::P521);
+}
+
 using verifiers = absl::flat_hash_map<
   ss::sstring,
   std::vector<detail::verifier>,
@@ -495,9 +581,27 @@ inline result<verifiers> make_verifiers(const jwks& jwks) {
     for (const auto& key : keys) {
         // NOTE(oren): 'alg' field is optional per RFC 7517
         // https://datatracker.ietf.org/doc/html/rfc7517#section-4.4
-        // In particular, Azure doesn't include it, so in its absence we can
-        // just try to verify as rs256 by default.
-        auto alg = detail::string_view(key, "alg").value_or(rs256_str);
+        // In its absence, kty is the next best hint at what the key can do.
+        ss::sstring alg;
+        if (
+          auto alg_field = detail::string_view(key, "alg");
+          alg_field.has_value()) {
+            alg = ss::sstring{alg_field.value()};
+        } else {
+            auto kty = detail::string_view(key, "kty");
+            if (!kty.has_value() || kty == rsa_str) {
+                // Azure omits alg, and historically omitting kty too meant
+                // an RS256 attempt. Keep that.
+                alg = rs256_str;
+            } else if (kty == ec_str) {
+                alg = string_switch<ss::sstring>(
+                        detail::string_view(key, "crv").value_or(""))
+                        .match("P-256", es256_str)
+                        .match("P-384", es384_str)
+                        .match("P-521", es512_str)
+                        .default_match("");
+            }
+        }
 
         // Use is optional, but must be sig if it exists
         auto use = detail::string_view(key, "use");
@@ -508,13 +612,27 @@ inline result<verifiers> make_verifiers(const jwks& jwks) {
         using factory = result<verifier> (*)(const json::Value&);
         auto v = string_switch<std::optional<factory>>(alg)
                    .match(rs256_str, &make_rs256_verifier)
+                   .match(es256_str, &make_es256_verifier)
+                   .match(es384_str, &make_es384_verifier)
+                   .match(es512_str, &make_es512_verifier)
                    .default_match(std::optional<factory>{});
         if (!v) {
+            vlog(
+              seclog.warn,
+              "Skipping JWK kid={}: unsupported alg '{}'",
+              detail::string_view(key, "kid").value_or(""),
+              alg);
             continue;
         }
 
         auto r = v.value()(key);
         if (!r) {
+            vlog(
+              seclog.warn,
+              "Skipping JWK kid={} alg={}: {}",
+              detail::string_view(key, "kid").value_or(""),
+              alg,
+              r.error().message());
             continue;
         }
 

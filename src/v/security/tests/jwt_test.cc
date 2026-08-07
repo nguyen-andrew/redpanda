@@ -412,6 +412,327 @@ BOOST_AUTO_TEST_CASE(test_single_kidless_key_fallback) {
     BOOST_REQUIRE(!verify.has_error());
 }
 
+BOOST_AUTO_TEST_CASE(test_es256_verify) {
+    // Fixtures generated with tests/.venv (PyJWT + cryptography): a P-256
+    // EC key published as a JWK with kty "EC", crv "P-256" and alg "ES256",
+    // plus a token it signed. The signature is P1363 (raw r||s, 64 bytes)
+    // as JOSE mandates, not DER.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"EC","use":"sig","kid":"es256-kid","crv":"P-256","x":"t5uaUULABNFDmufrSNtRLPgGEdfA_ueE8u7NXLzjE1E","y":"6hzgSZmdMncYk3C1glKLnuLdF8wfN9o_jt7EJBheDQk","alg":"ES256"}]})";
+    constexpr std::string_view token
+      = R"(eyJhbGciOiJFUzI1NiIsImtpZCI6ImVzMjU2LWtpZCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.iUV1AB2iUwpF7ClChY6nsRn05IeWSgctrKH5j-G4cLNqnAfFdky9QuQYEZPPKbx1UOibaVXhnFwlRyPmZ2ZnEg)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(!verify.has_error());
+}
+
+BOOST_AUTO_TEST_CASE(test_es384_verify) {
+    // Fixtures generated with tests/.venv (PyJWT + cryptography): a P-384
+    // EC key published as a JWK with kty "EC", crv "P-384" and alg "ES384",
+    // plus a token it signed. ES384 pairs SHA-384 with a 96-byte P1363
+    // signature.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"EC","use":"sig","kid":"es384-kid","crv":"P-384","x":"nDAk-QXUB3rNfDFJ3jGrh6U2_aG4gcqnJl1vCK4vCYmFWAc36iKLaiTNbGN4ey1c","y":"qLin2hhbZZonVvzW8GsrJjM4uPpYMaRnMfr5rKubEq_YCButjCJzu-HWrmbek2dz","alg":"ES384"}]})";
+    constexpr std::string_view token
+      = R"(eyJhbGciOiJFUzM4NCIsImtpZCI6ImVzMzg0LWtpZCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.QTl7tf6jX-ISwekP9qHGh3AVh63YHh7b6LOFHUowt2c1FL0L5YZeOyY4OHKGsZKbQ9neOE2_qnLJyrZyZ3DZWcwx9vXWj1x8Y8akp2yRjIihWDTHBsTPa6gBmBetXWKp)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(!verify.has_error());
+}
+
+BOOST_AUTO_TEST_CASE(test_es512_verify) {
+    // Fixtures generated with tests/.venv (PyJWT + cryptography): a P-521
+    // EC key published as a JWK with kty "EC", crv "P-521" and alg "ES512",
+    // plus a token it signed. Note the naming mismatch is intentional and
+    // per RFC 7518: ES512 means SHA-512 over curve P-521, whose 66-byte
+    // field width makes the P1363 signature 132 bytes.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"EC","use":"sig","kid":"es512-kid","crv":"P-521","x":"AFVacG0VoRW1IbtxQc4GZo58iJNNgW7kdZTsg267bZYVvnZqDVONu9Bu4K40hxgsM1HyBNCzE2WNfy3WqQUAHI82","y":"ANZXPUlO4Bh3wp_uCfNYKq2vCSC4xcfUJwIpX3XWivbHSpJlNZvupyTuJX6hm9Oj1iuScpPqsGZaOrSBqBB0W3Ee","alg":"ES512"}]})";
+    constexpr std::string_view token
+      = R"(eyJhbGciOiJFUzUxMiIsImtpZCI6ImVzNTEyLWtpZCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.AHSCXGHeEDHqg4B1VUG6S_MO6CwK-KuFmwA2QQAz7BQY2CRk-DGFwIuGgi6zhu_VZvRyDij66RHVYa6R6BpdXTRfAI2A12pNlWead8qgutycu3JlyHi-F3gNsw7zIWqPd7FehnccW66HwUs5gn1g8TAZGwzT3KuuBmz95CfYqI-JlwTb)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(!verify.has_error());
+}
+
+BOOST_AUTO_TEST_CASE(test_es_alg_inferred_from_crv) {
+    // Same P-256 key and ES256 token as test_es256_verify, but the JWK
+    // omits the optional alg field (RFC 7517 4.4), so the algorithm has to
+    // come from crv "P-256" -> ES256. Generated with tests/.venv (PyJWT +
+    // cryptography).
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"EC","use":"sig","kid":"es256-kid","crv":"P-256","x":"t5uaUULABNFDmufrSNtRLPgGEdfA_ueE8u7NXLzjE1E","y":"6hzgSZmdMncYk3C1glKLnuLdF8wfN9o_jt7EJBheDQk"}]})";
+    constexpr std::string_view token
+      = R"(eyJhbGciOiJFUzI1NiIsImtpZCI6ImVzMjU2LWtpZCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.iUV1AB2iUwpF7ClChY6nsRn05IeWSgctrKH5j-G4cLNqnAfFdky9QuQYEZPPKbx1UOibaVXhnFwlRyPmZ2ZnEg)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(!verify.has_error());
+}
+
+BOOST_AUTO_TEST_CASE(test_mixed_keyset_both_verify) {
+    // Fixtures generated with tests/.venv (PyJWT + cryptography): one JWKS
+    // carrying an RSA-2048 RS256 key (kid "rsa-kid") and a P-256 ES256 key
+    // (kid "ec-kid"), as IdPs publish during an algorithm migration. Both
+    // key types must load side by side and each token must verify against
+    // its own kid.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"RSA","alg":"RS256","use":"sig","kid":"rsa-kid","n":"sh68SNRutOEeMWj0m8BqLqrB0IMuZwASkhgBMLkmWCaWM1abj0kpBCoojM12YTAIWULwp9xPSUzMB0zFXrbYQ_gva95IlNYuRRAmXrifZgGupmQqrX7226G9EShWWk9zC3FJbXudXWwB7Oksgg-TszWXu4XoCtcqe4vrYL6_TLPI-a2iwQNHhmRO8VSlakK6Wos6EMzw4XKzvJDBshXPz6hJE0prmotM4QSa1MoiL_vpaclFk1f1pt9GwtkQd0VjfTZ73LN9CTcjYBKnlR8ednqlOvuM_3EIzLe1y-0GX4bmfbupKw6UPcGIWz6WAdbuo3mORrOAcvSwI4C53U614w","e":"AQAB"},{"kty":"EC","use":"sig","kid":"ec-kid","crv":"P-256","x":"_5joxFPM7ayOukYXbbWtQ5SpaT4FxiJZoGO4jRlQYOM","y":"zMszOwMcnXZhSOmTgUrrjcVef06ITinaMSXyAroZ_V0","alg":"ES256"}]})";
+    constexpr std::string_view rs_token
+      = R"(eyJhbGciOiJSUzI1NiIsImtpZCI6InJzYS1raWQiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.Be1H9SKdOwFRUTEG9-pDPzMHNGLloMBP3oN674DCURuWjEDmwxtm_pgP37D1ffCu2kR6C8nbPhUioJH_RcpAX18SLVIVnlb5MnTueTkLbdAqdS9xYfpt-hYUNHj51nTW452YQiMYY7gEMOlChx2eWyKyLZM9S0uN8CloZERgtIuzU9sJ0aAF8ddUpDlfyCDyTd0UrENzeHJVhmgpGHLIogvwOLLPzzd9sh9KmFuEfik1LIkIDH9SUUHUtho3OjYuMraDj8kwSHqEzDIS407nNss3irrS2mWG6djQiYH6avRuwXuPP5iiwVJMjAuYCV9EwnpNMyNwBPRmheSSHp0ilQ)";
+    constexpr std::string_view es_token
+      = R"(eyJhbGciOiJFUzI1NiIsImtpZCI6ImVjLWtpZCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.oRV6Lj3FD5F6DWHVCzTT8FQnnOXzjdjp_b6xm-rBa_S1f8GN8JAsMi5--uviCvmrrmw8fTIPDfMcMFwGqX0Kig)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    for (const auto& token : {rs_token, es_token}) {
+        auto jws = oidc::jws::make(ss::sstring{token});
+        BOOST_REQUIRE(!jws.has_error());
+
+        auto verify = v.verify(std::move(jws).assume_value());
+        BOOST_REQUIRE(!verify.has_error());
+    }
+}
+
+BOOST_AUTO_TEST_CASE(test_mixed_keyset_unknown_kid) {
+    // Same mixed RSA+EC keyset as test_mixed_keyset_both_verify. The token
+    // is signed by the RSA key but its kid header says "nope", matching
+    // neither published kid. Two verifiers are now loaded, so the
+    // single-verifier fallback must not fire and the token is rejected on
+    // kid alone.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"RSA","alg":"RS256","use":"sig","kid":"rsa-kid","n":"sh68SNRutOEeMWj0m8BqLqrB0IMuZwASkhgBMLkmWCaWM1abj0kpBCoojM12YTAIWULwp9xPSUzMB0zFXrbYQ_gva95IlNYuRRAmXrifZgGupmQqrX7226G9EShWWk9zC3FJbXudXWwB7Oksgg-TszWXu4XoCtcqe4vrYL6_TLPI-a2iwQNHhmRO8VSlakK6Wos6EMzw4XKzvJDBshXPz6hJE0prmotM4QSa1MoiL_vpaclFk1f1pt9GwtkQd0VjfTZ73LN9CTcjYBKnlR8ednqlOvuM_3EIzLe1y-0GX4bmfbupKw6UPcGIWz6WAdbuo3mORrOAcvSwI4C53U614w","e":"AQAB"},{"kty":"EC","use":"sig","kid":"ec-kid","crv":"P-256","x":"_5joxFPM7ayOukYXbbWtQ5SpaT4FxiJZoGO4jRlQYOM","y":"zMszOwMcnXZhSOmTgUrrjcVef06ITinaMSXyAroZ_V0","alg":"ES256"}]})";
+    constexpr std::string_view token
+      = R"(eyJhbGciOiJSUzI1NiIsImtpZCI6Im5vcGUiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.jCSemkXNA9bZELL29TkY8GXRjFRKt-G1r6oJhnxH5-KSjU3s9Xi1w75SdoT4rH7Dvb8bkXP1RSvyI0ZOQao8UskZ__EQIVmfQ0Uembj2U0VybyleNhYsBWO8V9ePs-O-dOG_WamGuEKWw_b2bO4_OFszRwXUwqkbUKCHTHJLaOx0zktWSavIdHNfw7bkvD9WflhYb7EWOhpw8gOl_8hw0iRfkHWTDQSAG8M6PsdHulvtYcFteJOGqjUG3ioAAMSbsMaiFJvKGd4e5aTFqBvPBKfgIeLH94Y-NYccf2Ed40VwPJu_NgTUFhJNVW8m03Jifyobeo90-1dcl5xAPPzYMg)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(verify.has_error());
+    BOOST_REQUIRE_EQUAL(oidc::errc::kid_not_found, verify.error());
+}
+
+BOOST_AUTO_TEST_CASE(test_crv_alg_mismatch_skipped) {
+    // Fixtures generated with tests/.venv (PyJWT + cryptography): a P-384
+    // EC key whose JWK falsely advertises alg "ES256" while crv says
+    // "P-384". Loading it under ES256 would verify SHA-256 signatures with
+    // a P-384 key, so the key is skipped; it is the only key in the set, so
+    // the whole keyset is rejected.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"EC","use":"sig","kid":"bad-kid","crv":"P-384","x":"gm_GCGh1aPVTNfvpEkDLq6CMFobmKQKNQ17ij1QrpKAFjDbQpcvURBrc5GrB4HUt","y":"R0I6d-DbZZgP7nvBjJQcl1oEFJPeckrDFjAPskV-q0t_h4UAAFi5UvHDIIfSs4pB","alg":"ES256"}]})";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(update.has_error());
+    BOOST_REQUIRE_EQUAL(oidc::errc::jwks_invalid, update.error());
+}
+
+BOOST_AUTO_TEST_CASE(test_short_coordinate_skipped) {
+    // Fixtures generated with tests/.venv (PyJWT + cryptography): a P-256
+    // ES256 JWK whose x coordinate was re-encoded at its minimal 31-byte
+    // length instead of the curve's fixed 32-byte field width, which RFC
+    // 7518 6.2.1.2 forbids. A common producer bug; the key must be skipped
+    // rather than loaded with a misaligned coordinate.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"EC","use":"sig","kid":"short-kid","crv":"P-256","x":"EW38Hzajr_zmiDzJ8oBRYKi1yIm1TCLZOVdkBCHAMg","y":"P5YnHI4KQKYYaSZvJaxVusqnatd4_fiqs8j6Als83RY","alg":"ES256"}]})";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(update.has_error());
+    BOOST_REQUIRE_EQUAL(oidc::errc::jwks_invalid, update.error());
+}
+
+BOOST_AUTO_TEST_CASE(test_es_alg_on_rsa_key_skipped) {
+    // The RSA-2048 key from test_mixed_keyset_both_verify with its alg
+    // rewritten to "ES256". An RSA key can never satisfy ES256, so the ES
+    // factory has to reject it on kty rather than reach for the absent x/y;
+    // it is the only key in the set, so the keyset is rejected.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"RSA","alg":"ES256","use":"sig","kid":"rsa-kid","n":"sh68SNRutOEeMWj0m8BqLqrB0IMuZwASkhgBMLkmWCaWM1abj0kpBCoojM12YTAIWULwp9xPSUzMB0zFXrbYQ_gva95IlNYuRRAmXrifZgGupmQqrX7226G9EShWWk9zC3FJbXudXWwB7Oksgg-TszWXu4XoCtcqe4vrYL6_TLPI-a2iwQNHhmRO8VSlakK6Wos6EMzw4XKzvJDBshXPz6hJE0prmotM4QSa1MoiL_vpaclFk1f1pt9GwtkQd0VjfTZ73LN9CTcjYBKnlR8ednqlOvuM_3EIzLe1y-0GX4bmfbupKw6UPcGIWz6WAdbuo3mORrOAcvSwI4C53U614w","e":"AQAB"}]})";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(update.has_error());
+    BOOST_REQUIRE_EQUAL(oidc::errc::jwks_invalid, update.error());
+}
+
+BOOST_AUTO_TEST_CASE(test_unsupported_alg_skipped) {
+    // Two ways a key can name an algorithm Redpanda has no verifier for.
+    // First: the RSA-2048 key from test_mixed_keyset_both_verify declaring
+    // the symmetric alg "HS256". Second: an EC key with no alg at all whose
+    // crv is "secp256k1", which is a real curve but not one of the three
+    // JOSE ES algorithms, so inference from crv yields nothing. The second
+    // key's coordinates are the P-256 ones from test_es256_verify and are
+    // never decoded - the key is dropped before any curve is chosen.
+    constexpr std::string_view hs256_jwks_str
+      = R"({"keys":[{"kty":"RSA","alg":"HS256","use":"sig","kid":"rsa-kid","n":"sh68SNRutOEeMWj0m8BqLqrB0IMuZwASkhgBMLkmWCaWM1abj0kpBCoojM12YTAIWULwp9xPSUzMB0zFXrbYQ_gva95IlNYuRRAmXrifZgGupmQqrX7226G9EShWWk9zC3FJbXudXWwB7Oksgg-TszWXu4XoCtcqe4vrYL6_TLPI-a2iwQNHhmRO8VSlakK6Wos6EMzw4XKzvJDBshXPz6hJE0prmotM4QSa1MoiL_vpaclFk1f1pt9GwtkQd0VjfTZ73LN9CTcjYBKnlR8ednqlOvuM_3EIzLe1y-0GX4bmfbupKw6UPcGIWz6WAdbuo3mORrOAcvSwI4C53U614w","e":"AQAB"}]})";
+    constexpr std::string_view k1_jwks_str
+      = R"({"keys":[{"kty":"EC","use":"sig","kid":"k1-kid","crv":"secp256k1","x":"t5uaUULABNFDmufrSNtRLPgGEdfA_ueE8u7NXLzjE1E","y":"6hzgSZmdMncYk3C1glKLnuLdF8wfN9o_jt7EJBheDQk"}]})";
+
+    for (const auto& jwks_str : {hs256_jwks_str, k1_jwks_str}) {
+        auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+        BOOST_REQUIRE(!jwks.has_error());
+
+        oidc::verifier v;
+        auto update = v.update_keys(std::move(jwks).assume_value());
+        BOOST_REQUIRE(update.has_error());
+        BOOST_REQUIRE_EQUAL(oidc::errc::jwks_invalid, update.error());
+    }
+}
+
+BOOST_AUTO_TEST_CASE(test_bad_key_skipped_good_key_loads) {
+    // The alg/crv-mismatched P-384 key from test_crv_alg_mismatch_skipped
+    // published alongside the healthy RSA-2048 RS256 key (kid "rsa-kid")
+    // from test_mixed_keyset_both_verify. One unloadable key must not cost
+    // the operator the rest of the keyset, so the update succeeds and the
+    // good key still verifies its token.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"EC","use":"sig","kid":"bad-kid","crv":"P-384","x":"gm_GCGh1aPVTNfvpEkDLq6CMFobmKQKNQ17ij1QrpKAFjDbQpcvURBrc5GrB4HUt","y":"R0I6d-DbZZgP7nvBjJQcl1oEFJPeckrDFjAPskV-q0t_h4UAAFi5UvHDIIfSs4pB","alg":"ES256"},{"kty":"RSA","alg":"RS256","use":"sig","kid":"rsa-kid","n":"sh68SNRutOEeMWj0m8BqLqrB0IMuZwASkhgBMLkmWCaWM1abj0kpBCoojM12YTAIWULwp9xPSUzMB0zFXrbYQ_gva95IlNYuRRAmXrifZgGupmQqrX7226G9EShWWk9zC3FJbXudXWwB7Oksgg-TszWXu4XoCtcqe4vrYL6_TLPI-a2iwQNHhmRO8VSlakK6Wos6EMzw4XKzvJDBshXPz6hJE0prmotM4QSa1MoiL_vpaclFk1f1pt9GwtkQd0VjfTZ73LN9CTcjYBKnlR8ednqlOvuM_3EIzLe1y-0GX4bmfbupKw6UPcGIWz6WAdbuo3mORrOAcvSwI4C53U614w","e":"AQAB"}]})";
+    constexpr std::string_view rs_token
+      = R"(eyJhbGciOiJSUzI1NiIsImtpZCI6InJzYS1raWQiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.Be1H9SKdOwFRUTEG9-pDPzMHNGLloMBP3oN674DCURuWjEDmwxtm_pgP37D1ffCu2kR6C8nbPhUioJH_RcpAX18SLVIVnlb5MnTueTkLbdAqdS9xYfpt-hYUNHj51nTW452YQiMYY7gEMOlChx2eWyKyLZM9S0uN8CloZERgtIuzU9sJ0aAF8ddUpDlfyCDyTd0UrENzeHJVhmgpGHLIogvwOLLPzzd9sh9KmFuEfik1LIkIDH9SUUHUtho3OjYuMraDj8kwSHqEzDIS407nNss3irrS2mWG6djQiYH6avRuwXuPP5iiwVJMjAuYCV9EwnpNMyNwBPRmheSSHp0ilQ)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{rs_token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(!verify.has_error());
+}
+
+BOOST_AUTO_TEST_CASE(test_ktyless_key_still_loads_rs256) {
+    // The RSA-2048 key and RS256 token from test_mixed_keyset_both_verify,
+    // but the JWK omits both kty and alg the way Azure AD's keysets do.
+    // With no type information at all the key must still be attempted as
+    // RS256, which is the behavior deployments already depend on.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"use":"sig","kid":"rsa-kid","n":"sh68SNRutOEeMWj0m8BqLqrB0IMuZwASkhgBMLkmWCaWM1abj0kpBCoojM12YTAIWULwp9xPSUzMB0zFXrbYQ_gva95IlNYuRRAmXrifZgGupmQqrX7226G9EShWWk9zC3FJbXudXWwB7Oksgg-TszWXu4XoCtcqe4vrYL6_TLPI-a2iwQNHhmRO8VSlakK6Wos6EMzw4XKzvJDBshXPz6hJE0prmotM4QSa1MoiL_vpaclFk1f1pt9GwtkQd0VjfTZ73LN9CTcjYBKnlR8ednqlOvuM_3EIzLe1y-0GX4bmfbupKw6UPcGIWz6WAdbuo3mORrOAcvSwI4C53U614w","e":"AQAB"}]})";
+    constexpr std::string_view token
+      = R"(eyJhbGciOiJSUzI1NiIsImtpZCI6InJzYS1raWQiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.Be1H9SKdOwFRUTEG9-pDPzMHNGLloMBP3oN674DCURuWjEDmwxtm_pgP37D1ffCu2kR6C8nbPhUioJH_RcpAX18SLVIVnlb5MnTueTkLbdAqdS9xYfpt-hYUNHj51nTW452YQiMYY7gEMOlChx2eWyKyLZM9S0uN8CloZERgtIuzU9sJ0aAF8ddUpDlfyCDyTd0UrENzeHJVhmgpGHLIogvwOLLPzzd9sh9KmFuEfik1LIkIDH9SUUHUtho3OjYuMraDj8kwSHqEzDIS407nNss3irrS2mWG6djQiYH6avRuwXuPP5iiwVJMjAuYCV9EwnpNMyNwBPRmheSSHp0ilQ)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(!verify.has_error());
+}
+
+BOOST_AUTO_TEST_CASE(test_update_keys_rotation_rsa_to_ec) {
+    // Fixtures generated with tests/.venv (PyJWT + cryptography): the
+    // RSA-2048 RS256 key from test_mixed_keyset_both_verify, then a P-256
+    // ES256 key republished under the same kid "rsa-kid", as an IdP does
+    // when it swaps a signing key's algorithm without renaming it. The
+    // second update_keys replaces the keyset wholesale, so the ES token
+    // verifies and the RS token that verified a moment ago no longer does.
+    constexpr std::string_view rsa_jwks_str
+      = R"({"keys":[{"kty":"RSA","alg":"RS256","use":"sig","kid":"rsa-kid","n":"sh68SNRutOEeMWj0m8BqLqrB0IMuZwASkhgBMLkmWCaWM1abj0kpBCoojM12YTAIWULwp9xPSUzMB0zFXrbYQ_gva95IlNYuRRAmXrifZgGupmQqrX7226G9EShWWk9zC3FJbXudXWwB7Oksgg-TszWXu4XoCtcqe4vrYL6_TLPI-a2iwQNHhmRO8VSlakK6Wos6EMzw4XKzvJDBshXPz6hJE0prmotM4QSa1MoiL_vpaclFk1f1pt9GwtkQd0VjfTZ73LN9CTcjYBKnlR8ednqlOvuM_3EIzLe1y-0GX4bmfbupKw6UPcGIWz6WAdbuo3mORrOAcvSwI4C53U614w","e":"AQAB"}]})";
+    constexpr std::string_view ec_jwks_str
+      = R"({"keys":[{"kty":"EC","use":"sig","kid":"rsa-kid","crv":"P-256","x":"KWWaA3pR2HXwGOeJQ0-wHzjDTeKomU6SE12V6RLw6yw","y":"Z6wUaf-7WkkAE_FguvSBsUNwDqQILIQ5_clFqLwVXfA","alg":"ES256"}]})";
+    constexpr std::string_view rs_token
+      = R"(eyJhbGciOiJSUzI1NiIsImtpZCI6InJzYS1raWQiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.Be1H9SKdOwFRUTEG9-pDPzMHNGLloMBP3oN674DCURuWjEDmwxtm_pgP37D1ffCu2kR6C8nbPhUioJH_RcpAX18SLVIVnlb5MnTueTkLbdAqdS9xYfpt-hYUNHj51nTW452YQiMYY7gEMOlChx2eWyKyLZM9S0uN8CloZERgtIuzU9sJ0aAF8ddUpDlfyCDyTd0UrENzeHJVhmgpGHLIogvwOLLPzzd9sh9KmFuEfik1LIkIDH9SUUHUtho3OjYuMraDj8kwSHqEzDIS407nNss3irrS2mWG6djQiYH6avRuwXuPP5iiwVJMjAuYCV9EwnpNMyNwBPRmheSSHp0ilQ)";
+    constexpr std::string_view es_token
+      = R"(eyJhbGciOiJFUzI1NiIsImtpZCI6InJzYS1raWQiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.Yv90_wd7PHvN99UrJF6Plh-VnbOGPolqdfvhhculyMMoXHT8vk5FKfgfE32RWUlEjlowBoWBHou_HSs6u3sF8A)";
+
+    const auto verify_token =
+      [](const oidc::verifier& v, std::string_view token) {
+          auto jws = oidc::jws::make(ss::sstring{token});
+          BOOST_REQUIRE(!jws.has_error());
+          return v.verify(std::move(jws).assume_value());
+      };
+
+    auto rsa_jwks = oidc::jwks::make(ss::sstring{rsa_jwks_str});
+    BOOST_REQUIRE(!rsa_jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(rsa_jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+    BOOST_REQUIRE(!verify_token(v, rs_token).has_error());
+
+    auto ec_jwks = oidc::jwks::make(ss::sstring{ec_jwks_str});
+    BOOST_REQUIRE(!ec_jwks.has_error());
+
+    auto rotate = v.update_keys(std::move(ec_jwks).assume_value());
+    BOOST_REQUIRE(!rotate.has_error());
+    BOOST_REQUIRE(!verify_token(v, es_token).has_error());
+
+    auto stale = verify_token(v, rs_token);
+    BOOST_REQUIRE(stale.has_error());
+    BOOST_REQUIRE_EQUAL(oidc::errc::jws_invalid_sig, stale.error());
+}
+
 struct auth_test_data {
     time_t now;
     std::string_view jwks;
