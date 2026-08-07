@@ -33,6 +33,7 @@
 #include <algorithm>
 #include <optional>
 #include <string_view>
+#include <vector>
 
 namespace security::oidc {
 
@@ -484,7 +485,7 @@ inline result<verifier> make_rs256_verifier(const json::Value& jwk) {
 
 using verifiers = absl::flat_hash_map<
   ss::sstring,
-  detail::verifier,
+  std::vector<detail::verifier>,
   detail::string_viewable_hasher,
   detail::string_viewable_compare>;
 
@@ -517,8 +518,7 @@ inline result<verifiers> make_verifiers(const jwks& jwks) {
             continue;
         }
 
-        vs.insert_or_assign(
-          detail::string_view(key, "kid").value_or(""),
+        vs[ss::sstring{detail::string_view(key, "kid").value_or("")}].push_back(
           std::move(r).assume_value());
     }
     if (vs.empty()) {
@@ -581,12 +581,18 @@ public:
             return jwt.assume_error();
         }
 
-        auto verifier = _verifiers.find(jwt.assume_value().kid().value());
-        if (verifier == _verifiers.end()) {
-            if (_verifiers.size() != 1) {
-                return errc::kid_not_found;
-            }
-            verifier = _verifiers.begin();
+        auto it = _verifiers.find(jwt.assume_value().kid().value());
+        const std::vector<detail::verifier>* candidates = nullptr;
+        if (it != _verifiers.end()) {
+            candidates = &it->second;
+        } else if (_total_verifiers == 1) {
+            // make_verifiers() never produces an empty map or a bucket
+            // with an empty candidate vector, so _total_verifiers == 1
+            // guarantees exactly one bucket holding exactly one verifier:
+            // begin() is valid here.
+            candidates = &_verifiers.begin()->second;
+        } else {
+            return errc::kid_not_found;
         }
 
         auto second_dot = jose_enc[0].length() + 1 + jose_enc[1].length();
@@ -595,11 +601,12 @@ public:
           // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
           reinterpret_cast<const uint8_t*>(msg.data()),
           msg.size());
-        if (!verifier->second.verify(msg_view, signature)) {
-            return errc::jws_invalid_sig;
+        for (const auto& candidate : *candidates) {
+            if (candidate.verify(msg_view, signature)) {
+                return jwt;
+            }
         }
-
-        return jwt;
+        return errc::jws_invalid_sig;
     }
 
     // Update the verification keys
@@ -608,12 +615,24 @@ public:
         if (verifiers.has_error()) {
             return verifiers.assume_error();
         }
-        _verifiers = std::move(verifiers).assume_value();
+        set_verifiers(std::move(verifiers).assume_value());
         return outcome::success();
     }
 
 private:
+    // Assigns _verifiers and recomputes _total_verifiers together, so the
+    // two are never observably out of sync (e.g. a stale, too-low count
+    // silently re-enabling the unknown-kid fallback).
+    void set_verifiers(detail::verifiers vs) {
+        _verifiers = std::move(vs);
+        _total_verifiers = 0;
+        for (const auto& kv : _verifiers) {
+            _total_verifiers += kv.second.size();
+        }
+    }
+
     detail::verifiers _verifiers;
+    size_t _total_verifiers{0};
 };
 
 } // namespace security::oidc

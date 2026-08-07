@@ -288,6 +288,130 @@ BOOST_DATA_TEST_CASE(test_oidc_verifier, bdata::make(oidc_verify_data), d) {
     BOOST_REQUIRE(!verify.has_error());
 }
 
+BOOST_AUTO_TEST_CASE(test_duplicate_kid_candidates) {
+    // Fixtures generated with tests/.venv (PyJWT + cryptography): two
+    // RSA-2048 keys sharing kid "dup", RS256. Token signed by the FIRST
+    // key. Under insert_or_assign the first key is evicted by the second
+    // and verification fails; with a candidate vector per kid it must
+    // succeed.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"RSA","alg":"RS256","use":"sig","n":"j9lxGXsIwR9FxwZoHGWm8weT3Y_0TPBmI2yhJF9JiIjVjw_TbEKr0m0oApyWmtW7QWEeInsTNZ8W506h4jbbxsKERvEs5Gn9gRStGcvogQfMxzeNaW8rxFer4E4s6aGfZQxDzKKISCpQGm5KfQ6cnT3TXNk6UK0SVZeQ1DLd-BbamMO2pSth_yj0c-WBCFuJsWE2vtV7A-87Xq70e5pijF5VQjqQKcHWL7YS4P66-kEbxWiA92C0oAdtEtOyf8Wz9KkmlLtywc6Si9E1eXfbyM59RDU7F_xMcZXXJQMN56qgZDpTUeUIuU2c3VGcB-Vgl2WKNJJm4LclDomfvcjMCQ","e":"AQAB","kid":"dup"},{"kty":"RSA","alg":"RS256","use":"sig","n":"3Wom1aDg5Uhrs40y2etgo0iYB3Kqidt7g7SG5Cg8RaBBNX6zYaBZIOnuQgDyu0Ufy2_vP8dGzNgxXNgdn5uCPw481VspvtT5R7SNy-J5EclWpaOsvrMORkxzPMk-o8S0YV1hWoreZQe1P6FnH8wnwRCzFsudCldUlbeGdZNtMMoVj1nhVu2zQ77mQOOxIF5h7m3kExv-_u7MZ67JA7WJZgJXZKfs9GMF6jgCKZ3r2snSWjL76boXZ7MLLqnrK5vDpLtjeMBZJ_vxbYUb60cgmmvCPfRIv38WG3dkwpimZfb2QKA5y91eI4YF12ZPXwAQD_xbLTQ9TTJjLMg80El9oQ","e":"AQAB","kid":"dup"}]})";
+    constexpr std::string_view token
+      = R"(eyJhbGciOiJSUzI1NiIsImtpZCI6ImR1cCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.eaFat2Sm8Fgama2WHUmiLFmwPhP22Wmc23csXHEyyU6gJUpNHDXEd4vd25V85yKPxkjboOA0xXm7FGNbDp3mnA3GxUslN7YICdWPJNgdz38OKSSSZbf2xrgoxPrFjmRc87laMsSZEPQ7SP1OqPr6Dr_YIxMXBqIHuefGN5v-anRbc4xcS3hoGb4bILglNq26TjcPme0Xm3-3xnYb8AN5gc3MivPbPHwIJNmoGQUzAG-GM6AkkWmygkiZzrYm0tHQEYZbd_B32y4dpLYnpTTM2CPZxXpuszr0L7F6WUGsj3Pxil-AwmrA0VzYjYpLoulGFl_5DoyFQ2IdJN4_SmQPbQ)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(!verify.has_error());
+}
+
+BOOST_AUTO_TEST_CASE(test_duplicate_kid_second_key_verifies) {
+    // Same "dup"-kid JWKS as test_duplicate_kid_candidates, but the token
+    // is signed by the SECOND key instead of the first. Pins that the
+    // candidate loop actually iterates past a failed first candidate,
+    // rather than only ever checking candidates->front().
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"RSA","alg":"RS256","use":"sig","n":"j9lxGXsIwR9FxwZoHGWm8weT3Y_0TPBmI2yhJF9JiIjVjw_TbEKr0m0oApyWmtW7QWEeInsTNZ8W506h4jbbxsKERvEs5Gn9gRStGcvogQfMxzeNaW8rxFer4E4s6aGfZQxDzKKISCpQGm5KfQ6cnT3TXNk6UK0SVZeQ1DLd-BbamMO2pSth_yj0c-WBCFuJsWE2vtV7A-87Xq70e5pijF5VQjqQKcHWL7YS4P66-kEbxWiA92C0oAdtEtOyf8Wz9KkmlLtywc6Si9E1eXfbyM59RDU7F_xMcZXXJQMN56qgZDpTUeUIuU2c3VGcB-Vgl2WKNJJm4LclDomfvcjMCQ","e":"AQAB","kid":"dup"},{"kty":"RSA","alg":"RS256","use":"sig","n":"3Wom1aDg5Uhrs40y2etgo0iYB3Kqidt7g7SG5Cg8RaBBNX6zYaBZIOnuQgDyu0Ufy2_vP8dGzNgxXNgdn5uCPw481VspvtT5R7SNy-J5EclWpaOsvrMORkxzPMk-o8S0YV1hWoreZQe1P6FnH8wnwRCzFsudCldUlbeGdZNtMMoVj1nhVu2zQ77mQOOxIF5h7m3kExv-_u7MZ67JA7WJZgJXZKfs9GMF6jgCKZ3r2snSWjL76boXZ7MLLqnrK5vDpLtjeMBZJ_vxbYUb60cgmmvCPfRIv38WG3dkwpimZfb2QKA5y91eI4YF12ZPXwAQD_xbLTQ9TTJjLMg80El9oQ","e":"AQAB","kid":"dup"}]})";
+    constexpr std::string_view token
+      = R"(eyJhbGciOiJSUzI1NiIsImtpZCI6ImR1cCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.cDeX9wLNasIoaRkGhi3vt84S6Q6nt5pT6uyb608-76xUeVwvPJ7aapQk_fyUQy2RIAjhzeJYlNbaVcnRXPIolv-p_Wd51COYSLtBNvZPG6-R51PNXQkjz0SCzsEVKV5oqhjCOv1TeiqJi0vNczMnj-CElxFgkpXHcIi9onCHQufpHTVQaoW-um0bdJm7JfKQ7kyD7lNUV83PkukVl2EmBXoq4iTh2bXJdiztdsSJ0YN_anJXk7u7gGP4YwVvBOBEvHwx4rMRX4829NmTMC6kFK2wFBfvuhqK4D8NGHNpBi3yYxf0etbt1e07Hz_rvPunQTSXSQbsX9LqxEzIf44Etg)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(!verify.has_error());
+}
+
+BOOST_AUTO_TEST_CASE(test_matching_kid_bad_signature_rejected) {
+    // Same "dup"-kid JWKS again. Token is test_duplicate_kid_candidates's token
+    // with one character flipped in the middle of its third (signature) segment
+    // ('b' -> 'z'; deterministic, no key material needed to construct it). The
+    // kid matches, so this pins that a corrupted signature is rejected rather
+    // than accepted unconditionally once a candidate list is found.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"RSA","alg":"RS256","use":"sig","n":"j9lxGXsIwR9FxwZoHGWm8weT3Y_0TPBmI2yhJF9JiIjVjw_TbEKr0m0oApyWmtW7QWEeInsTNZ8W506h4jbbxsKERvEs5Gn9gRStGcvogQfMxzeNaW8rxFer4E4s6aGfZQxDzKKISCpQGm5KfQ6cnT3TXNk6UK0SVZeQ1DLd-BbamMO2pSth_yj0c-WBCFuJsWE2vtV7A-87Xq70e5pijF5VQjqQKcHWL7YS4P66-kEbxWiA92C0oAdtEtOyf8Wz9KkmlLtywc6Si9E1eXfbyM59RDU7F_xMcZXXJQMN56qgZDpTUeUIuU2c3VGcB-Vgl2WKNJJm4LclDomfvcjMCQ","e":"AQAB","kid":"dup"},{"kty":"RSA","alg":"RS256","use":"sig","n":"3Wom1aDg5Uhrs40y2etgo0iYB3Kqidt7g7SG5Cg8RaBBNX6zYaBZIOnuQgDyu0Ufy2_vP8dGzNgxXNgdn5uCPw481VspvtT5R7SNy-J5EclWpaOsvrMORkxzPMk-o8S0YV1hWoreZQe1P6FnH8wnwRCzFsudCldUlbeGdZNtMMoVj1nhVu2zQ77mQOOxIF5h7m3kExv-_u7MZ67JA7WJZgJXZKfs9GMF6jgCKZ3r2snSWjL76boXZ7MLLqnrK5vDpLtjeMBZJ_vxbYUb60cgmmvCPfRIv38WG3dkwpimZfb2QKA5y91eI4YF12ZPXwAQD_xbLTQ9TTJjLMg80El9oQ","e":"AQAB","kid":"dup"}]})";
+    constexpr std::string_view token
+      = R"(eyJhbGciOiJSUzI1NiIsImtpZCI6ImR1cCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.eaFat2Sm8Fgama2WHUmiLFmwPhP22Wmc23csXHEyyU6gJUpNHDXEd4vd25V85yKPxkjboOA0xXm7FGNbDp3mnA3GxUslN7YICdWPJNgdz38OKSSSZbf2xrgoxPrFjmRc87laMsSZEPQ7SP1OqPr6Dr_YIxMXBqIHuefGN5v-anRzc4xcS3hoGb4bILglNq26TjcPme0Xm3-3xnYb8AN5gc3MivPbPHwIJNmoGQUzAG-GM6AkkWmygkiZzrYm0tHQEYZbd_B32y4dpLYnpTTM2CPZxXpuszr0L7F6WUGsj3Pxil-AwmrA0VzYjYpLoulGFl_5DoyFQ2IdJN4_SmQPbQ)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(verify.has_error());
+    BOOST_REQUIRE_EQUAL(oidc::errc::jws_invalid_sig, verify.error());
+}
+
+BOOST_AUTO_TEST_CASE(test_kidless_keys_collide_as_candidates) {
+    // Fixtures generated with tests/.venv (PyJWT + cryptography): two
+    // RSA-2048 keys with no kid field, RS256, so both group under "". A
+    // token whose kid header is "anything" matches nothing, and with 2
+    // total verifiers loaded, the unknown-kid fallback must NOT fire.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"RSA","alg":"RS256","use":"sig","n":"j9lxGXsIwR9FxwZoHGWm8weT3Y_0TPBmI2yhJF9JiIjVjw_TbEKr0m0oApyWmtW7QWEeInsTNZ8W506h4jbbxsKERvEs5Gn9gRStGcvogQfMxzeNaW8rxFer4E4s6aGfZQxDzKKISCpQGm5KfQ6cnT3TXNk6UK0SVZeQ1DLd-BbamMO2pSth_yj0c-WBCFuJsWE2vtV7A-87Xq70e5pijF5VQjqQKcHWL7YS4P66-kEbxWiA92C0oAdtEtOyf8Wz9KkmlLtywc6Si9E1eXfbyM59RDU7F_xMcZXXJQMN56qgZDpTUeUIuU2c3VGcB-Vgl2WKNJJm4LclDomfvcjMCQ","e":"AQAB"},{"kty":"RSA","alg":"RS256","use":"sig","n":"3Wom1aDg5Uhrs40y2etgo0iYB3Kqidt7g7SG5Cg8RaBBNX6zYaBZIOnuQgDyu0Ufy2_vP8dGzNgxXNgdn5uCPw481VspvtT5R7SNy-J5EclWpaOsvrMORkxzPMk-o8S0YV1hWoreZQe1P6FnH8wnwRCzFsudCldUlbeGdZNtMMoVj1nhVu2zQ77mQOOxIF5h7m3kExv-_u7MZ67JA7WJZgJXZKfs9GMF6jgCKZ3r2snSWjL76boXZ7MLLqnrK5vDpLtjeMBZJ_vxbYUb60cgmmvCPfRIv38WG3dkwpimZfb2QKA5y91eI4YF12ZPXwAQD_xbLTQ9TTJjLMg80El9oQ","e":"AQAB"}]})";
+    constexpr std::string_view token
+      = R"(eyJhbGciOiJSUzI1NiIsImtpZCI6ImFueXRoaW5nIiwidHlwIjoiSldUIn0.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.GRm__jfXhqNuATBR5aEvZAc4g1jYrKi6ASc6Uj_Bq4m4iSDRN8JlrYfeNZwwDMAwEb7Y2lHh2eP2ALY190HIluSdszcueXUcjuNs-YXD0NUF4SuOaPNCNIzvSolFmnqoWas6jTbLa2E_zYVtwb0dMtJ-JdXKbRmBpcTESQcIHJmINcF3XqAHtdSO29YHsXsG9L8xlAKfRmE-OYfMoU32FHlPofioHmkfvil_PoEss1-pLW86DiaUFSd2XKe-MkoaqVLxA-Z22HM8BWeN70WOM3Y57TMRjg2hUyAGAMmWT8y4fz9j__wiC-H-6t3C7mFm1lSmUhWUgQdGhufHB_BVeQ)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(verify.has_error());
+    BOOST_REQUIRE_EQUAL(oidc::errc::kid_not_found, verify.error());
+}
+
+BOOST_AUTO_TEST_CASE(test_single_kidless_key_fallback) {
+    // Same key and token as test_kidless_keys_collide_as_candidates
+    // (RSA-2048, RS256, no kid field), but the JWKS carries only the first
+    // key. One total verifier is loaded, so the token's non-matching
+    // "anything" kid header falls back to the sole candidate and verifies.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"RSA","alg":"RS256","use":"sig","n":"j9lxGXsIwR9FxwZoHGWm8weT3Y_0TPBmI2yhJF9JiIjVjw_TbEKr0m0oApyWmtW7QWEeInsTNZ8W506h4jbbxsKERvEs5Gn9gRStGcvogQfMxzeNaW8rxFer4E4s6aGfZQxDzKKISCpQGm5KfQ6cnT3TXNk6UK0SVZeQ1DLd-BbamMO2pSth_yj0c-WBCFuJsWE2vtV7A-87Xq70e5pijF5VQjqQKcHWL7YS4P66-kEbxWiA92C0oAdtEtOyf8Wz9KkmlLtywc6Si9E1eXfbyM59RDU7F_xMcZXXJQMN56qgZDpTUeUIuU2c3VGcB-Vgl2WKNJJm4LclDomfvcjMCQ","e":"AQAB"}]})";
+    constexpr std::string_view token
+      = R"(eyJhbGciOiJSUzI1NiIsImtpZCI6ImFueXRoaW5nIiwidHlwIjoiSldUIn0.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.GRm__jfXhqNuATBR5aEvZAc4g1jYrKi6ASc6Uj_Bq4m4iSDRN8JlrYfeNZwwDMAwEb7Y2lHh2eP2ALY190HIluSdszcueXUcjuNs-YXD0NUF4SuOaPNCNIzvSolFmnqoWas6jTbLa2E_zYVtwb0dMtJ-JdXKbRmBpcTESQcIHJmINcF3XqAHtdSO29YHsXsG9L8xlAKfRmE-OYfMoU32FHlPofioHmkfvil_PoEss1-pLW86DiaUFSd2XKe-MkoaqVLxA-Z22HM8BWeN70WOM3Y57TMRjg2hUyAGAMmWT8y4fz9j__wiC-H-6t3C7mFm1lSmUhWUgQdGhufHB_BVeQ)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(!verify.has_error());
+}
+
 struct auth_test_data {
     time_t now;
     std::string_view jwks;
