@@ -509,6 +509,81 @@ BOOST_AUTO_TEST_CASE(test_es_alg_inferred_from_crv) {
     BOOST_REQUIRE(!verify.has_error());
 }
 
+BOOST_AUTO_TEST_CASE(test_rs384_verify) {
+    // Fixtures generated with tests/.venv (PyJWT + cryptography): an
+    // RSA-2048 key published as a JWK with kty "RSA" and alg "RS384", plus
+    // a token it signed.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"RSA","alg":"RS384","use":"sig","kid":"rs384-kid","n":"oHlLTSBgt1VI1J52BRWV-EpqtFOD3SqA7rx7ojBnvmfd9ljACaNITzlWBsEIdVx2w8Kb1Zfq7zsLg2V5mqNXk0j2_IFL7gVVeN0EXfgMJjnF-4vlKX1DeFrNzWroSavJySVPvHWmJi60b1rkae9eu-dwbQ9_f3eXqw0n4_w71ot2X64rXUdEI5TtoSb5D8C8mHgLp8VdFbiMMQr-3zHWek0j6Rlj4fPuRE41xAfCoRp4lHZ_1MZP-GcRogC2YYq74RJ9ejCxV57e9YVgoe3pG2uF2-HWtN8ctCiAdXX6GR3Oh-nQCXptBe1sDgembSP8R_8xvlGgGzlX-GUxDqg_AQ","e":"AQAB"}]})";
+    constexpr std::string_view token
+      = R"(eyJhbGciOiJSUzM4NCIsImtpZCI6InJzMzg0LWtpZCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.g9wn90YLDxLV2siFPDQnX4HYsu6FxuVy6lMVTwb9vnc6GRvM_TsCHLVvFJtfyH6iEt68wnBUYeiP9OnhFjK4d0mvTUUZgyq3di0wFt1hZNSHOT4Q8QJjUZwGPwbNvOJvO9A3Wyv5cPh-lCfE2UKfc5EJ1_-FrOA07lTVrVBkcNkyAD5vqf9MqOBaivQMV6fLjg2uDC4518YklKSX_vEiYj3SYE3mt_0abTeCesZPjF7uGrvYD_xOIrPB1f9s5q7ChIA4p3pLQQs7bcD-J_Tkla36ygBMlTODLAlk7ixJZ3Jq_eEUaYgaT1gxlK5rls9YWd8-wDZd1ODFY-vUdIVmJQ)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(!verify.has_error());
+}
+
+BOOST_AUTO_TEST_CASE(test_rs512_verify) {
+    // Fixtures generated with tests/.venv (PyJWT + cryptography): an
+    // RSA-2048 key published as a JWK with kty "RSA" and alg "RS512", plus
+    // a token it signed.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"RSA","alg":"RS512","use":"sig","kid":"rs512-kid","n":"0QHb3cIJTcbV7e3ToQlxJ02mi78owNI51CjFo2cV-0HMGb7Rbj3NF81m5_qaZg3x4y31De0ackL5m3aVWFwkeP-A4EZsk6YbhQu9oZvb7ZcXpK1k9rSRM9q7m2wdk7a4E7YNfwyK7iArBEac_MVtiH97TG0UxUQV74QsI1EL4T__c7nKQAL7ioREz-RiGeKO8_PgVBcbIx2DsCFHNxswcV__tTkHcHikkRxTAL8__Rm5WTalEaGKgDQ2mLKvlyD6Zg5A-yuBqTei1laBqLJaam9v-7hzW0MQlWkjqqg5yd2ZjPSCtSAjBJF_ucFwEDwTIUnAiX5Z-ugTubV8RM_Puw","e":"AQAB"}]})";
+    constexpr std::string_view token
+      = R"(eyJhbGciOiJSUzUxMiIsImtpZCI6InJzNTEyLWtpZCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.IvDnstjJqkPkZjp16B225kRoU8g5ySQNEWZpx9dVOYECpt4jVaYmnveTP5Z8djZ18ThiD57MKz_9nC_prKkomoXzyh-aTN7X3JlZTwLSQOdt0IH6RIoO77-WCepfUGeVE8sHiSpJPO28NYgPV2VspQ5S9wF_5UpXQMBzDwgEhsgOPU2FDJ8pL8S9oIPYhEnkgn9L5ghavb8JJJvadfU_zhVkW0rBRnJma6ydYy5ch6vgzr__ctJOmfmbZ_Eqhcx5ldw5XLKkAqxNp92AN4QzTFa1jaZ19yADMeYSnBwVN7yh3JGj1GZCba8wkiMSyM6u0p0XabRXqhtVziNnmq32Nw)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(!verify.has_error());
+}
+
+BOOST_AUTO_TEST_CASE(test_rs384_alg_absent_stays_rs256) {
+    // Same RSA-2048 key as test_rs384_verify (PyJWT + cryptography via
+    // tests/.venv), but the JWK omits the optional alg field (RFC 7517
+    // 4.4). RSA key material carries no digest hint, so the absent-alg
+    // fallback keeps the RS256 assumption instead of inferring RS384:
+    // update_keys still succeeds - the key loads as an RS256 attempt - but
+    // verifying the RS384-signed token fails because it was hashed with
+    // SHA-384, not SHA-256. This pins the documented limitation that an
+    // RS384/RS512 JWK must carry an explicit alg.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"RSA","use":"sig","kid":"rs384-kid","n":"oHlLTSBgt1VI1J52BRWV-EpqtFOD3SqA7rx7ojBnvmfd9ljACaNITzlWBsEIdVx2w8Kb1Zfq7zsLg2V5mqNXk0j2_IFL7gVVeN0EXfgMJjnF-4vlKX1DeFrNzWroSavJySVPvHWmJi60b1rkae9eu-dwbQ9_f3eXqw0n4_w71ot2X64rXUdEI5TtoSb5D8C8mHgLp8VdFbiMMQr-3zHWek0j6Rlj4fPuRE41xAfCoRp4lHZ_1MZP-GcRogC2YYq74RJ9ejCxV57e9YVgoe3pG2uF2-HWtN8ctCiAdXX6GR3Oh-nQCXptBe1sDgembSP8R_8xvlGgGzlX-GUxDqg_AQ","e":"AQAB"}]})";
+    constexpr std::string_view token
+      = R"(eyJhbGciOiJSUzM4NCIsImtpZCI6InJzMzg0LWtpZCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.g9wn90YLDxLV2siFPDQnX4HYsu6FxuVy6lMVTwb9vnc6GRvM_TsCHLVvFJtfyH6iEt68wnBUYeiP9OnhFjK4d0mvTUUZgyq3di0wFt1hZNSHOT4Q8QJjUZwGPwbNvOJvO9A3Wyv5cPh-lCfE2UKfc5EJ1_-FrOA07lTVrVBkcNkyAD5vqf9MqOBaivQMV6fLjg2uDC4518YklKSX_vEiYj3SYE3mt_0abTeCesZPjF7uGrvYD_xOIrPB1f9s5q7ChIA4p3pLQQs7bcD-J_Tkla36ygBMlTODLAlk7ixJZ3Jq_eEUaYgaT1gxlK5rls9YWd8-wDZd1ODFY-vUdIVmJQ)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(verify.has_error());
+    BOOST_REQUIRE_EQUAL(oidc::errc::jws_invalid_sig, verify.error());
+}
+
 BOOST_AUTO_TEST_CASE(test_mixed_keyset_both_verify) {
     // Fixtures generated with tests/.venv (PyJWT + cryptography): one JWKS
     // carrying an RSA-2048 RS256 key (kid "rsa-kid") and a P-256 ES256 key

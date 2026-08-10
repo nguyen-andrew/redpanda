@@ -472,6 +472,17 @@ using es512_verifier = verifier_impl<
   es512_str,
   ec_str>;
 
+constexpr const char rs384_str[] = "RS384";
+constexpr const char rs512_str[] = "RS512";
+using rs384_verifier = verifier_impl<
+  crypto_lib_algorithm<crypto::digest_type::SHA384>,
+  rs384_str,
+  rsa_str>;
+using rs512_verifier = verifier_impl<
+  crypto_lib_algorithm<crypto::digest_type::SHA512>,
+  rs512_str,
+  rsa_str>;
+
 // Verify the signature of a message
 class verifier {
 public:
@@ -493,12 +504,18 @@ public:
     }
 
 private:
-    using verifier_impls = std::
-      variant<rs256_verifier, es256_verifier, es384_verifier, es512_verifier>;
+    using verifier_impls = std::variant<
+      rs256_verifier,
+      es256_verifier,
+      es384_verifier,
+      es512_verifier,
+      rs384_verifier,
+      rs512_verifier>;
     verifier_impls _impl;
 };
 
-inline result<verifier> make_rs256_verifier(const json::Value& jwk) {
+template<typename VerifierT>
+result<verifier> make_rsa_verifier(const json::Value& jwk) {
     try {
         auto n = detail::base64_url_decode(jwk, "n");
         auto e = detail::base64_url_decode(jwk, "e");
@@ -506,12 +523,32 @@ inline result<verifier> make_rs256_verifier(const json::Value& jwk) {
             return errc::jwk_invalid;
         }
         auto key = crypto::key::load_rsa_public_key(n.value(), e.value());
-        return verifier{rs256_verifier{std::move(key)}};
-    } catch (const base64_url_decoder_exception&) {
+        return verifier{VerifierT{std::move(key)}};
+    } catch (const base64_url_decoder_exception& ex) {
+        vlog(
+          seclog.warn,
+          "Failed to load RSA JWK kid={}: {}",
+          detail::string_view(jwk, "kid").value_or(""),
+          ex.what());
         return errc::jwk_invalid;
-    } catch (const crypto::exception&) {
+    } catch (const crypto::exception& ex) {
+        vlog(
+          seclog.warn,
+          "Failed to load RSA JWK kid={}: {}",
+          detail::string_view(jwk, "kid").value_or(""),
+          ex.what());
         return errc::jwk_invalid;
     }
+}
+
+inline result<verifier> make_rs256_verifier(const json::Value& jwk) {
+    return make_rsa_verifier<rs256_verifier>(jwk);
+}
+inline result<verifier> make_rs384_verifier(const json::Value& jwk) {
+    return make_rsa_verifier<rs384_verifier>(jwk);
+}
+inline result<verifier> make_rs512_verifier(const json::Value& jwk) {
+    return make_rsa_verifier<rs512_verifier>(jwk);
 }
 
 // crypto::key_type::EC carries no curve, so the JWK is the only place the
@@ -582,25 +619,26 @@ inline result<verifiers> make_verifiers(const jwks& jwks) {
         // NOTE(oren): 'alg' field is optional per RFC 7517
         // https://datatracker.ietf.org/doc/html/rfc7517#section-4.4
         // In its absence, kty is the next best hint at what the key can do.
+        // kty is kept around past this point so the unsupported-alg warning
+        // below can tell an unrecognized crv apart from a genuinely
+        // unsupported alg.
+        auto kty = detail::string_view(key, "kty");
         ss::sstring alg;
         if (
           auto alg_field = detail::string_view(key, "alg");
           alg_field.has_value()) {
             alg = ss::sstring{alg_field.value()};
-        } else {
-            auto kty = detail::string_view(key, "kty");
-            if (!kty.has_value() || kty == rsa_str) {
-                // Azure omits alg, and historically omitting kty too meant
-                // an RS256 attempt. Keep that.
-                alg = rs256_str;
-            } else if (kty == ec_str) {
-                alg = string_switch<ss::sstring>(
-                        detail::string_view(key, "crv").value_or(""))
-                        .match("P-256", es256_str)
-                        .match("P-384", es384_str)
-                        .match("P-521", es512_str)
-                        .default_match("");
-            }
+        } else if (!kty.has_value() || kty == rsa_str) {
+            // Azure omits alg, and historically omitting kty too meant
+            // an RS256 attempt. Keep that.
+            alg = rs256_str;
+        } else if (kty == ec_str) {
+            alg = string_switch<ss::sstring>(
+                    detail::string_view(key, "crv").value_or(""))
+                    .match("P-256", es256_str)
+                    .match("P-384", es384_str)
+                    .match("P-521", es512_str)
+                    .default_match("");
         }
 
         // Use is optional, but must be sig if it exists
@@ -615,13 +653,25 @@ inline result<verifiers> make_verifiers(const jwks& jwks) {
                    .match(es256_str, &make_es256_verifier)
                    .match(es384_str, &make_es384_verifier)
                    .match(es512_str, &make_es512_verifier)
+                   .match(rs384_str, &make_rs384_verifier)
+                   .match(rs512_str, &make_rs512_verifier)
                    .default_match(std::optional<factory>{});
         if (!v) {
-            vlog(
-              seclog.warn,
-              "Skipping JWK kid={}: unsupported alg '{}'",
-              detail::string_view(key, "kid").value_or(""),
-              alg);
+            if (alg.empty() && kty == ec_str) {
+                // Inference from crv (above) produced no match: name the
+                // crv rather than the empty alg it fell through to.
+                vlog(
+                  seclog.warn,
+                  "Skipping JWK kid={}: unsupported crv '{}'",
+                  detail::string_view(key, "kid").value_or(""),
+                  detail::string_view(key, "crv").value_or(""));
+            } else {
+                vlog(
+                  seclog.warn,
+                  "Skipping JWK kid={}: unsupported alg '{}'",
+                  detail::string_view(key, "kid").value_or(""),
+                  alg);
+            }
             continue;
         }
 
