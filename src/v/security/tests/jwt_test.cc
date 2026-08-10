@@ -412,6 +412,39 @@ BOOST_AUTO_TEST_CASE(test_single_kidless_key_fallback) {
     BOOST_REQUIRE(!verify.has_error());
 }
 
+BOOST_AUTO_TEST_CASE(test_fallback_candidate_alg_mismatch_rejected) {
+    // Derived from test_single_kidless_key_fallback's committed JWKS (one
+    // kid-less RSA-2048 RS256 key) and its committed token: the header is
+    // swapped for {"alg":"ES256","kid":"anything"} (base64url re-encoded;
+    // payload and signature segments are untouched). "anything" still
+    // matches no kid, and _total_verifiers is still 1, so the same RS256
+    // candidate is selected via the unknown-kid fallback - but its alg
+    // doesn't match the header's claimed ES256, so the fallback candidate
+    // gets filtered out exactly like a kid-matched one would be. No
+    // candidate matches, so this must reject as jwt_invalid_alg: the
+    // header filter applies to the fallback path too, not only to
+    // kid-matched buckets (the sibling test_single_kidless_key_fallback
+    // covers the matching-alg case for this same fallback).
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"RSA","alg":"RS256","use":"sig","n":"j9lxGXsIwR9FxwZoHGWm8weT3Y_0TPBmI2yhJF9JiIjVjw_TbEKr0m0oApyWmtW7QWEeInsTNZ8W506h4jbbxsKERvEs5Gn9gRStGcvogQfMxzeNaW8rxFer4E4s6aGfZQxDzKKISCpQGm5KfQ6cnT3TXNk6UK0SVZeQ1DLd-BbamMO2pSth_yj0c-WBCFuJsWE2vtV7A-87Xq70e5pijF5VQjqQKcHWL7YS4P66-kEbxWiA92C0oAdtEtOyf8Wz9KkmlLtywc6Si9E1eXfbyM59RDU7F_xMcZXXJQMN56qgZDpTUeUIuU2c3VGcB-Vgl2WKNJJm4LclDomfvcjMCQ","e":"AQAB"}]})";
+    constexpr std::string_view token
+      = R"(eyJhbGciOiJFUzI1NiIsImtpZCI6ImFueXRoaW5nIn0.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.GRm__jfXhqNuATBR5aEvZAc4g1jYrKi6ASc6Uj_Bq4m4iSDRN8JlrYfeNZwwDMAwEb7Y2lHh2eP2ALY190HIluSdszcueXUcjuNs-YXD0NUF4SuOaPNCNIzvSolFmnqoWas6jTbLa2E_zYVtwb0dMtJ-JdXKbRmBpcTESQcIHJmINcF3XqAHtdSO29YHsXsG9L8xlAKfRmE-OYfMoU32FHlPofioHmkfvil_PoEss1-pLW86DiaUFSd2XKe-MkoaqVLxA-Z22HM8BWeN70WOM3Y57TMRjg2hUyAGAMmWT8y4fz9j__wiC-H-6t3C7mFm1lSmUhWUgQdGhufHB_BVeQ)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(verify.has_error());
+    BOOST_REQUIRE_EQUAL(oidc::errc::jwt_invalid_alg, verify.error());
+}
+
 BOOST_AUTO_TEST_CASE(test_es256_verify) {
     // Fixtures generated with tests/.venv (PyJWT + cryptography): a P-256
     // EC key published as a JWK with kty "EC", crv "P-256" and alg "ES256",
@@ -561,9 +594,11 @@ BOOST_AUTO_TEST_CASE(test_rs384_alg_absent_stays_rs256) {
     // 4.4). RSA key material carries no digest hint, so the absent-alg
     // fallback keeps the RS256 assumption instead of inferring RS384:
     // update_keys still succeeds - the key loads as an RS256 attempt - but
-    // verifying the RS384-signed token fails because it was hashed with
-    // SHA-384, not SHA-256. This pins the documented limitation that an
-    // RS384/RS512 JWK must carry an explicit alg.
+    // the token's header claims RS384, which the "rs384-kid" candidate
+    // doesn't declare (it can only ever claim RS256), so it is rejected as
+    // jwt_invalid_alg before any signature bytes are compared. This pins
+    // the documented limitation that an RS384/RS512 JWK must carry an
+    // explicit alg.
     constexpr std::string_view jwks_str
       = R"({"keys":[{"kty":"RSA","use":"sig","kid":"rs384-kid","n":"oHlLTSBgt1VI1J52BRWV-EpqtFOD3SqA7rx7ojBnvmfd9ljACaNITzlWBsEIdVx2w8Kb1Zfq7zsLg2V5mqNXk0j2_IFL7gVVeN0EXfgMJjnF-4vlKX1DeFrNzWroSavJySVPvHWmJi60b1rkae9eu-dwbQ9_f3eXqw0n4_w71ot2X64rXUdEI5TtoSb5D8C8mHgLp8VdFbiMMQr-3zHWek0j6Rlj4fPuRE41xAfCoRp4lHZ_1MZP-GcRogC2YYq74RJ9ejCxV57e9YVgoe3pG2uF2-HWtN8ctCiAdXX6GR3Oh-nQCXptBe1sDgembSP8R_8xvlGgGzlX-GUxDqg_AQ","e":"AQAB"}]})";
     constexpr std::string_view token
@@ -581,7 +616,7 @@ BOOST_AUTO_TEST_CASE(test_rs384_alg_absent_stays_rs256) {
 
     auto verify = v.verify(std::move(jws).assume_value());
     BOOST_REQUIRE(verify.has_error());
-    BOOST_REQUIRE_EQUAL(oidc::errc::jws_invalid_sig, verify.error());
+    BOOST_REQUIRE_EQUAL(oidc::errc::jwt_invalid_alg, verify.error());
 }
 
 BOOST_AUTO_TEST_CASE(test_mixed_keyset_both_verify) {
@@ -637,6 +672,62 @@ BOOST_AUTO_TEST_CASE(test_mixed_keyset_unknown_kid) {
     auto verify = v.verify(std::move(jws).assume_value());
     BOOST_REQUIRE(verify.has_error());
     BOOST_REQUIRE_EQUAL(oidc::errc::kid_not_found, verify.error());
+}
+
+BOOST_AUTO_TEST_CASE(test_alg_header_mismatch_rejected) {
+    // Derived from test_mixed_keyset_both_verify's mixed RSA+EC keyset and
+    // its ES256 "ec-kid" token (es_token): the header is swapped for
+    // {"alg":"RS256","kid":"ec-kid"} (base64url re-encoded; the payload and
+    // signature segments are untouched, so the signature now covers
+    // different bytes than it was computed over). "ec-kid" still resolves
+    // to a candidate - the ES256 verifier - but that candidate's alg
+    // doesn't match the header's claimed RS256, so no candidate is ever
+    // tried against the signature. Per RFC 8725 3.1 that must surface as
+    // jwt_invalid_alg, not jws_invalid_sig: the header lied about the
+    // algorithm, rather than a same-alg key just failing to verify.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"RSA","alg":"RS256","use":"sig","kid":"rsa-kid","n":"sh68SNRutOEeMWj0m8BqLqrB0IMuZwASkhgBMLkmWCaWM1abj0kpBCoojM12YTAIWULwp9xPSUzMB0zFXrbYQ_gva95IlNYuRRAmXrifZgGupmQqrX7226G9EShWWk9zC3FJbXudXWwB7Oksgg-TszWXu4XoCtcqe4vrYL6_TLPI-a2iwQNHhmRO8VSlakK6Wos6EMzw4XKzvJDBshXPz6hJE0prmotM4QSa1MoiL_vpaclFk1f1pt9GwtkQd0VjfTZ73LN9CTcjYBKnlR8ednqlOvuM_3EIzLe1y-0GX4bmfbupKw6UPcGIWz6WAdbuo3mORrOAcvSwI4C53U614w","e":"AQAB"},{"kty":"EC","use":"sig","kid":"ec-kid","crv":"P-256","x":"_5joxFPM7ayOukYXbbWtQ5SpaT4FxiJZoGO4jRlQYOM","y":"zMszOwMcnXZhSOmTgUrrjcVef06ITinaMSXyAroZ_V0","alg":"ES256"}]})";
+    constexpr std::string_view token
+      = R"(eyJhbGciOiJSUzI1NiIsImtpZCI6ImVjLWtpZCJ9.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.oRV6Lj3FD5F6DWHVCzTT8FQnnOXzjdjp_b6xm-rBa_S1f8GN8JAsMi5--uviCvmrrmw8fTIPDfMcMFwGqX0Kig)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(verify.has_error());
+    BOOST_REQUIRE_EQUAL(oidc::errc::jwt_invalid_alg, verify.error());
+}
+
+BOOST_AUTO_TEST_CASE(test_alg_header_match_still_verifies) {
+    // Regression guard for test_alg_header_mismatch_rejected: the same
+    // mixed keyset with test_mixed_keyset_both_verify's ES256 "ec-kid"
+    // token (es_token) used unmodified, so its header alg "ES256" matches
+    // the "ec-kid" candidate's alg. Alg filtering must not reject tokens
+    // whose header was never mislabeled.
+    constexpr std::string_view jwks_str
+      = R"({"keys":[{"kty":"RSA","alg":"RS256","use":"sig","kid":"rsa-kid","n":"sh68SNRutOEeMWj0m8BqLqrB0IMuZwASkhgBMLkmWCaWM1abj0kpBCoojM12YTAIWULwp9xPSUzMB0zFXrbYQ_gva95IlNYuRRAmXrifZgGupmQqrX7226G9EShWWk9zC3FJbXudXWwB7Oksgg-TszWXu4XoCtcqe4vrYL6_TLPI-a2iwQNHhmRO8VSlakK6Wos6EMzw4XKzvJDBshXPz6hJE0prmotM4QSa1MoiL_vpaclFk1f1pt9GwtkQd0VjfTZ73LN9CTcjYBKnlR8ednqlOvuM_3EIzLe1y-0GX4bmfbupKw6UPcGIWz6WAdbuo3mORrOAcvSwI4C53U614w","e":"AQAB"},{"kty":"EC","use":"sig","kid":"ec-kid","crv":"P-256","x":"_5joxFPM7ayOukYXbbWtQ5SpaT4FxiJZoGO4jRlQYOM","y":"zMszOwMcnXZhSOmTgUrrjcVef06ITinaMSXyAroZ_V0","alg":"ES256"}]})";
+    constexpr std::string_view token
+      = R"(eyJhbGciOiJFUzI1NiIsImtpZCI6ImVjLWtpZCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.oRV6Lj3FD5F6DWHVCzTT8FQnnOXzjdjp_b6xm-rBa_S1f8GN8JAsMi5--uviCvmrrmw8fTIPDfMcMFwGqX0Kig)";
+
+    auto jwks = oidc::jwks::make(ss::sstring{jwks_str});
+    BOOST_REQUIRE(!jwks.has_error());
+
+    oidc::verifier v;
+    auto update = v.update_keys(std::move(jwks).assume_value());
+    BOOST_REQUIRE(!update.has_error());
+
+    auto jws = oidc::jws::make(ss::sstring{token});
+    BOOST_REQUIRE(!jws.has_error());
+
+    auto verify = v.verify(std::move(jws).assume_value());
+    BOOST_REQUIRE(!verify.has_error());
 }
 
 BOOST_AUTO_TEST_CASE(test_crv_alg_mismatch_skipped) {
@@ -771,7 +862,10 @@ BOOST_AUTO_TEST_CASE(test_update_keys_rotation_rsa_to_ec) {
     // ES256 key republished under the same kid "rsa-kid", as an IdP does
     // when it swaps a signing key's algorithm without renaming it. The
     // second update_keys replaces the keyset wholesale, so the ES token
-    // verifies and the RS token that verified a moment ago no longer does.
+    // verifies; the RS token that verified a moment ago now names an alg
+    // ("RS256") the rotated-in "rsa-kid" candidate ("ES256") doesn't have,
+    // so it is rejected as jwt_invalid_alg rather than re-attempted as a
+    // signature check.
     constexpr std::string_view rsa_jwks_str
       = R"({"keys":[{"kty":"RSA","alg":"RS256","use":"sig","kid":"rsa-kid","n":"sh68SNRutOEeMWj0m8BqLqrB0IMuZwASkhgBMLkmWCaWM1abj0kpBCoojM12YTAIWULwp9xPSUzMB0zFXrbYQ_gva95IlNYuRRAmXrifZgGupmQqrX7226G9EShWWk9zC3FJbXudXWwB7Oksgg-TszWXu4XoCtcqe4vrYL6_TLPI-a2iwQNHhmRO8VSlakK6Wos6EMzw4XKzvJDBshXPz6hJE0prmotM4QSa1MoiL_vpaclFk1f1pt9GwtkQd0VjfTZ73LN9CTcjYBKnlR8ednqlOvuM_3EIzLe1y-0GX4bmfbupKw6UPcGIWz6WAdbuo3mORrOAcvSwI4C53U614w","e":"AQAB"}]})";
     constexpr std::string_view ec_jwks_str
@@ -805,7 +899,7 @@ BOOST_AUTO_TEST_CASE(test_update_keys_rotation_rsa_to_ec) {
 
     auto stale = verify_token(v, rs_token);
     BOOST_REQUIRE(stale.has_error());
-    BOOST_REQUIRE_EQUAL(oidc::errc::jws_invalid_sig, stale.error());
+    BOOST_REQUIRE_EQUAL(oidc::errc::jwt_invalid_alg, stale.error());
 }
 
 struct auth_test_data {

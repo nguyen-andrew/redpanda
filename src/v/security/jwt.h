@@ -769,10 +769,21 @@ public:
           // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
           reinterpret_cast<const uint8_t*>(msg.data()),
           msg.size());
+        bool alg_matched = false;
+        const auto token_alg = jwt.assume_value().alg().value();
         for (const auto& candidate : *candidates) {
+            if (candidate.alg() != token_alg) {
+                continue;
+            }
+            alg_matched = true;
             if (candidate.verify(msg_view, signature)) {
                 return jwt;
             }
+        }
+        if (!alg_matched) {
+            // RFC 8725 3.1: the alg header must match the algorithm of
+            // the cryptographic operation actually performed
+            return errc::jwt_invalid_alg;
         }
         return errc::jws_invalid_sig;
     }
