@@ -176,6 +176,28 @@ class KeycloakAdminClient:
             self.logger.debug("Creating group mapper")
             self.kc_admin.add_mapper_to_client(id, mapper_representation)
 
+    def create_ecdsa_key_provider(self, curve: str = "P-256", priority: int = 200):
+        """Add an ECDSA realm signing key (org.keycloak.keys.KeyProvider)."""
+        self.kc_admin.create_component(
+            payload={
+                "name": f"ecdsa-{curve.lower()}",
+                "providerId": "ecdsa-generated",
+                "providerType": "org.keycloak.keys.KeyProvider",
+                "config": {
+                    "ecdsaEllipticCurveKey": [curve],
+                    "priority": [str(priority)],
+                    "enabled": ["true"],
+                    "active": ["true"],
+                },
+            }
+        )
+
+    def set_default_signature_algorithm(self, algorithm: str):
+        self.kc_admin.update_realm(
+            realm_name=DEFAULT_REALM,
+            payload={"defaultSignatureAlgorithm": algorithm},
+        )
+
     def create_group(
         self,
         group_name: str,

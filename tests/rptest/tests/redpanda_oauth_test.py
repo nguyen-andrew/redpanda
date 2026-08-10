@@ -7,6 +7,7 @@
 # the Business Source License, use of this software will be governed
 # by the Apache License, Version 2.0
 
+import base64
 import datetime
 from enum import Enum
 import json
@@ -2330,4 +2331,62 @@ class OIDCLicenseTest(RedpandaOIDCTestBase):
             self.redpanda.has_license_nag,
             timeout_sec=self.LICENSE_CHECK_INTERVAL_SEC * 2,
             err_msg="License nag failed to appear",
+        )
+
+
+class OIDCKeycloakEs256Test(RedpandaOIDCTestBase):
+    """End-to-end OAUTHBEARER against a real IdP signing with ES256."""
+
+    @cluster(num_nodes=4)
+    def test_es256_authentication(self):
+        kc_node = self.keycloak.nodes[0]
+        client_id = CLIENT_ID
+        service_user_id = self.create_service_user(client_id)
+
+        # ES256 realm signing key + make it the default; the realm keeps
+        # its RSA keys, so the JWKS the broker fetches is a mixed keyset.
+        self.keycloak.admin.create_ecdsa_key_provider(curve="P-256")
+        self.keycloak.admin.set_default_signature_algorithm("ES256")
+
+        # The broker already cached the (RSA-only) JWKS on startup and
+        # only refreshes it hourly by default, so it won't know about the
+        # new ES256 key yet. Force a refresh now, before any token minted
+        # with that key is presented for authentication.
+        AdminV2(self.redpanda).security().refresh_oidc_keys(
+            security_pb2.RefreshOidcKeysRequest()
+        )
+
+        self.rpk.create_topic(EXAMPLE_TOPIC)
+        self.rpk.sasl_allow_principal(
+            f"User:{service_user_id}",
+            ["all"],
+            "topic",
+            EXAMPLE_TOPIC,
+            self.su_username,
+            self.su_password,
+            self.su_algorithm,
+        )
+
+        cfg = self.keycloak.generate_oauth_config(kc_node, client_id)
+        token = self.get_client_credentials_token(cfg)
+
+        # sanity: the access token really is ES256-signed
+        header = json.loads(
+            base64.urlsafe_b64decode(token["access_token"].split(".")[0] + "==")
+        )
+        assert header["alg"] == "ES256", header
+
+        k_client = PythonLibrdkafka(
+            self.redpanda,
+            algorithm="OAUTHBEARER",
+            oauth_config=cfg,
+        )
+        producer = k_client.get_producer()
+        producer.poll(0.0)
+        expected_topics = set([EXAMPLE_TOPIC])
+        wait_until(
+            lambda: set(producer.list_topics(timeout=5).topics.keys())
+            == expected_topics,
+            timeout_sec=10,
+            err_msg="Failed to list topics with an ES256-signed token",
         )
