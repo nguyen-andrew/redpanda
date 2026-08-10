@@ -256,3 +256,65 @@ PERF_TEST(oidc_authenticator_bench, 1000_groups_as_string_nested) {
     run_authenticate(
       jwt_1000_groups_as_string_nested, test_group_policy_suffix);
 }
+
+namespace {
+
+// The benches above only exercise claims validation on an already-parsed
+// jwt; none of them touch jws/verifier, so none are sensitive to signature
+// algorithm. The fixtures and PERF_TESTs below drive the actual
+// verify(jws) path so per-algorithm signature verification cost is
+// measurable. exp is far in the future so the tokens never age out;
+// verification, not claims validation, is what's being measured here.
+
+// Fixtures generated with tests/.venv (PyJWT + cryptography): an RSA-2048
+// key published as a JWK with kty "RSA", alg "RS256", plus a token it
+// signed.
+constexpr std::string_view rs256_bench_jwks
+  = R"({"keys":[{"kty":"RSA","alg":"RS256","use":"sig","kid":"rs256-bench-kid","n":"yG_al1uIr1qKBrzc-ep8Tk_zkDIt_motFMk7tBzBnpIsv09M3TepZX5rRJkLu7oJM2t1XnEd_INaEoRgFtHg8xOrctWxU8enbyMiWl1P1ocSFvx-KZtE1FhtPPY1NeV3WjyOR689HWQy-rHloSMoeEEH0IXCJucDyZUXaPU0puFI_vLjX1qCmdY-1PqsMAvea6Uki0KOoDfW7E4ngbupVfMNIB4VtTIFLDHPoSbQc604fie6xcGkXarSfZHz4xi3tlmHNF3rvGak49AI5eJX6flQwibKAuO2eq9MP7kvbrEX43LOezMIqryZ5Y7UsG8GJSMxbNz7iN-JJluosnkIhQ","e":"AQAB"}]})";
+constexpr std::string_view rs256_bench_token
+  = R"(eyJhbGciOiJSUzI1NiIsImtpZCI6InJzMjU2LWJlbmNoLWtpZCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.VF2Az3y6F6OkHlp7gtFr5Hr7_UDzIigj1_zCmFD8El7q8kb6G23RRPW8flLRbvGtRoDIpU8A_ulP0kFOdDdOUASvE4qFHCgfHydTomHAQcYyqhbr30tlFmjWoA_ldLCpyYOSoheNpCabNTbVmYJgp-b0ca9T7dBZECPz1SvPzlbs-h2yypNazcZrjwGDhYC7FZrz9bLz-nnhouMaT5BC6URZ3OYcB09VKn2WILeQKP-b-iKzQK8-LphbDLZacma6HIFwdqpYXyxWJfM3zI6QtVOZVaQ29BsC-vMp1HAtynR9nEI56ue1tdtaEA4Gqx2jYPZxEUTd7xeDcaJI9A2rrg)";
+
+// Fixtures generated with tests/.venv (PyJWT + cryptography): a P-256 EC
+// key published as a JWK with kty "EC", crv "P-256", alg "ES256", plus a
+// token it signed. The signature is P1363 (raw r||s), not DER, as JOSE
+// requires.
+constexpr std::string_view es256_bench_jwks
+  = R"({"keys":[{"kty":"EC","use":"sig","kid":"es256-bench-kid","crv":"P-256","x":"iAkWROQaGVD2NpMO7Z_G5YVOd7NX23uIVW0iO8nSFfs","y":"zK7MlQ4yzolXp1Xdfm7mKjyQdI_CKjK3WNjcwkeJLPY","alg":"ES256"}]})";
+constexpr std::string_view es256_bench_token
+  = R"(eyJhbGciOiJFUzI1NiIsImtpZCI6ImVzMjU2LWJlbmNoLWtpZCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.BHAq8n97s0r4LIncUWUpTYiy7LuDZbWqqhGU3R0k-jD10nxBrk-b4hTkTBFYo-NPWp8pgDLe0jmyIOJYniZF8w)";
+
+// Fixtures generated with tests/.venv (PyJWT + cryptography): a P-521 EC
+// key published as a JWK with kty "EC", crv "P-521", alg "ES512" (SHA-512
+// over P-521 per RFC 7518 3.4), plus a token it signed.
+constexpr std::string_view es512_bench_jwks
+  = R"({"keys":[{"kty":"EC","use":"sig","kid":"es512-bench-kid","crv":"P-521","x":"AW3rz1UXxQMeAN3VrsuCDAtalP20pLSs0c5_5-xqcevOooEu9h_eEn3UgQ7LmSoKv4zXT97wdy3Ork1QGOAJCaDe","y":"AM57eNjHBMPjKbG3DnLMlbpRzIwGZW_53kE7gql11YmSmpslKrTfObe7eSXYg4SBmcRxOistryXNpXGOunjpaUG4","alg":"ES512"}]})";
+constexpr std::string_view es512_bench_token
+  = R"(eyJhbGciOiJFUzUxMiIsImtpZCI6ImVzNTEyLWJlbmNoLWtpZCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpc3N1ZXIiLCJhdWQiOiJhdWQiLCJzdWIiOiJzdWIiLCJleHAiOjIwMDAwMDAwMDAsImlhdCI6MTcyMzAwMDAwMH0.ACF0Brv9nRH5Va5MV0jXypBy_j04mcQr1z0MaWAeLE0nZDGLgCCyLjTZq5tVp5ZYUYCgZoaBG-2WwrYi3eciO_W6Abd5u_vGBdDctlexRCqUBl2mMhJ8fJcRgBGSWLNOcFMCBWffS80zy8KktIDtvAmRzGoQxPzy6MdLuYIuotoPX8lG)";
+
+struct verify_fixture {
+    verifier verifier_;
+    jws token;
+    explicit verify_fixture(std::string_view jwks_str, std::string_view tok)
+      : token(jws::make(ss::sstring{tok}).assume_value()) {
+        auto keys = jwks::make(ss::sstring{jwks_str}).assume_value();
+        auto r = verifier_.update_keys(keys);
+        vassert(!r.has_error(), "bench fixture must load");
+    }
+};
+
+} // namespace
+
+PERF_TEST(oidc_verify_bench, rs256) {
+    static verify_fixture f(rs256_bench_jwks, rs256_bench_token);
+    perf_tests::do_not_optimize(f.verifier_.verify(f.token));
+}
+
+PERF_TEST(oidc_verify_bench, es256) {
+    static verify_fixture f(es256_bench_jwks, es256_bench_token);
+    perf_tests::do_not_optimize(f.verifier_.verify(f.token));
+}
+
+PERF_TEST(oidc_verify_bench, es512) {
+    static verify_fixture f(es512_bench_jwks, es512_bench_token);
+    perf_tests::do_not_optimize(f.verifier_.verify(f.token));
+}
