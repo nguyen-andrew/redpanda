@@ -88,7 +88,11 @@ class StubOIDCProvider(HttpServer):
             return False
 
     def register_client(
-        self, client_id: str, claims: dict[str, Any], client_secret: str = "stub-secret"
+        self,
+        client_id: str,
+        claims: dict[str, Any],
+        client_secret: str = "stub-secret",
+        alg: str = "RS256",
     ) -> Any:
         resp = requests.post(
             f"{self.url}/register",
@@ -96,6 +100,7 @@ class StubOIDCProvider(HttpServer):
                 "client_id": client_id,
                 "client_secret": client_secret,
                 "claims": claims,
+                "alg": alg,
             },
             timeout=5,
         )
