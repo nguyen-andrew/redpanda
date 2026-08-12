@@ -95,6 +95,16 @@ void audit_authz(
     }
 }
 
+const auto subject_resource_type = ssx::sformat(
+  "{}", security::resource_type::sr_subject);
+
+const auto registry_resource_type = ssx::sformat(
+  "{}", security::resource_type::sr_registry);
+
+using audit_resources = chunked_vector<security::audit::resource_detail>;
+
+} // namespace
+
 void check_authenticated(
   const server::request_t& rq,
   std::string_view operation_name,
@@ -108,16 +118,6 @@ void check_authenticated(
         throw;
     }
 }
-
-const auto subject_resource_type = ssx::sformat(
-  "{}", security::resource_type::sr_subject);
-
-const auto registry_resource_type = ssx::sformat(
-  "{}", security::resource_type::sr_registry);
-
-using audit_resources = chunked_vector<security::audit::resource_detail>;
-
-} // namespace
 
 void handle_authz(
   const server::request_t& rq,

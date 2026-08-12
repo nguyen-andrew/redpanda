@@ -25,6 +25,20 @@ namespace pandaproxy::schema_registry::enterprise {
 
 using server = ctx_server<service>;
 
+/// Raises 401 if the request is not authenticated, auditing the failure.
+///
+/// Deferred endpoints call this from `auth::handle_auth`, before the result is
+/// handed to the handler. That rejects unauthenticated requests before the
+/// handler does any work, and it marks the result checked so that
+/// `~request_auth_result` cannot throw from inside the handler's coroutine
+/// frame, where a throw would escape seastar's noexcept task entry point and
+/// abort the broker.
+void check_authenticated(
+  const server::request_t& rq,
+  std::string_view operation_name,
+  security::acl_operation op,
+  request_auth_result& auth_result);
+
 void handle_authz(
   const server::request_t& rq,
   std::string_view operation_name,

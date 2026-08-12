@@ -213,7 +213,16 @@ std::optional<request_auth_result> auth::handle_auth(
         // did not give the authorization header.
         if (config::shard_local_cfg().schema_registry_enable_authorization) {
             if (is_deferred()) {
-                // Defer the authorization handling to the method handler
+                // Only the authorization decision is deferred to the handler.
+                // Authentication is checked here so that unauthenticated
+                // requests are rejected before the handler does any work, and
+                // so the result is already marked checked before it enters the
+                // handler's coroutine frame. See check_authenticated.
+                enterprise::check_authenticated(
+                  rq,
+                  operation_name,
+                  _op.value_or(security::acl_operation::all),
+                  auth_result);
                 return auth_result;
             } else {
                 enterprise::handle_authz(
