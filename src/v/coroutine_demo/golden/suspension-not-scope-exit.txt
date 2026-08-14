@@ -1,0 +1,12 @@
+|
+| ==== call the coroutine; it runs eagerly until its first suspension ====
+|
+| local.instrumented()           constructed
+| coro: suspending; the local stays alive
+|
+| ==== suspended: the caller runs while the local stays alive ====
+|
+| caller: I have control and no destructor has run
+| coro: resumed; the local is still alive
+| local.~instrumented()          uncaught_exceptions=0 current_exception=null
+| caller: coroutine finished

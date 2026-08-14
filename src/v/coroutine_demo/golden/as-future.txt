@@ -1,0 +1,12 @@
+|
+| ==== the same failure consumed as a value with ss::coroutine::as_future ====
+|
+| consumer-local.instrumented()  constructed
+| origin-local.instrumented()    constructed
+|
+| ==== the origin resumes and throws ====
+|
+| origin-local.~instrumented()   uncaught_exceptions=1 current_exception=null
+| consumer: received failed=true as data; nothing was rethrown here
+| unwind events observed: 1 (origin only; this layer stayed on the value path)
+| consumer-local.~instrumented() uncaught_exceptions=0 current_exception=null

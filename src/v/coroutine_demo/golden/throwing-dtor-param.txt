@@ -1,0 +1,14 @@
+|
+| ==== a guard object as a by-value PARAMETER: expect std::terminate ====
+|
+| param.instrumented()           constructed (mode: throw_when_clear)
+| param#1.instrumented(&&)       move-constructed from param; param is now moved-from
+| param#2.instrumented(&&)       move-constructed from param#1; param#1 is now moved-from
+| param#2.note_alive()           the coroutine body uses this object
+| coro: suspending on a future that will fail
+|
+| ==== the failure arrives after a real suspension ====
+|
+| helper: resumed; throwing
+| param#2.~instrumented()        uncaught_exceptions=0 current_exception=null
+| param#2.~instrumented()        no exception visible here; throwing

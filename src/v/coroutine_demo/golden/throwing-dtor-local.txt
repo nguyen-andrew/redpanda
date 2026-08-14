@@ -1,0 +1,9 @@
+|
+| ==== a guard object as a coroutine LOCAL: its throw becomes a failed future ====
+|
+| local.instrumented()           constructed (mode: throw_when_clear)
+| coro: local goes out of scope now, with nothing in flight
+| local.~instrumented()          uncaught_exceptions=0 current_exception=null
+| local.~instrumented()          no exception visible here; throwing
+| caller: caught the dtor throw as a failed future: thrown by ~local
+| caller: the process is fine

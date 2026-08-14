@@ -1,0 +1,22 @@
+|
+| ==== the caller builds the argument and calls the coroutine ====
+|
+| param.instrumented()           constructed
+| param#1.instrumented(&&)       move-constructed from param; param is now moved-from
+| param#2.instrumented(&&)       move-constructed from param#1; param#1 is now moved-from
+| param#2.note_alive()           the coroutine body uses this object
+| local.instrumented()           constructed
+| coro: suspending on a future that will fail
+|
+| ==== the failure arrives after a real suspension ====
+|
+| helper: resumed; throwing
+| local.~instrumented()          uncaught_exceptions=1 current_exception=null
+| param#2.~instrumented()        uncaught_exceptions=0 current_exception=null
+| param#1.~instrumented()        [moved-from] uncaught_exceptions=0 current_exception=null
+|
+| ==== the caller finds out ====
+|
+| caller: coroutine failed, received as data: failed=true
+| caller: the local unwound; the param was destroyed in the blind window
+| param.~instrumented()          [moved-from] uncaught_exceptions=0 current_exception=null

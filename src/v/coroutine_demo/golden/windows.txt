@@ -1,0 +1,21 @@
+|
+| ==== baseline: plain scope exit, no exception anywhere ====
+|
+| baseline-local.instrumented()  constructed
+| baseline-local.~instrumented() uncaught_exceptions=0 current_exception=null
+|
+| ==== window 1: destroyed while an exception unwinds the scope ====
+|
+| w1-local.instrumented()        constructed
+| w1-local.~instrumented()       uncaught_exceptions=1 current_exception=null
+|
+| ==== window 2: destroyed inside the catch handler ====
+|
+| w2-local.instrumented()        constructed
+| w2-local.~instrumented()       uncaught_exceptions=0 current_exception=non-null
+|
+| ==== window 3: destroyed after the handler exited ====
+|
+| w3-local.instrumented()        constructed
+| w3-local.~instrumented()       uncaught_exceptions=0 current_exception=null
+| note: window 3 reads exactly like the baseline

@@ -1,0 +1,10 @@
+|
+| ==== the same failure through a .then() chain: continuations are skipped ====
+|
+| origin-local.instrumented()    constructed
+|
+| ==== the origin resumes and throws ====
+|
+| origin-local.~instrumented()   uncaught_exceptions=1 current_exception=null
+| consumer: received failed=true as data; no continuation ran
+| unwind events observed: 1 (origin only; forwarding added none)

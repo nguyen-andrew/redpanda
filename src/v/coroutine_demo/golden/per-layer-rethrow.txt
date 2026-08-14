@@ -1,0 +1,19 @@
+|
+| ==== build four nested coroutines; they run eagerly down to the origin and suspend ====
+|
+| layer3-local.instrumented()    constructed
+| layer2-local.instrumented()    constructed
+| layer1-local.instrumented()    constructed
+| origin-local.instrumented()    constructed
+|
+| ==== the origin resumes and throws ====
+|
+| origin-local.~instrumented()   uncaught_exceptions=1 current_exception=null
+| layer1-local.~instrumented()   uncaught_exceptions=1 current_exception=null
+| layer2-local.~instrumented()   uncaught_exceptions=1 current_exception=null
+| layer3-local.~instrumented()   uncaught_exceptions=1 current_exception=null
+|
+| ==== what the caller saw ====
+|
+| caller: chain failed, received as data: failed=true
+| unwind events observed: 4 (origin plus one per coroutine layer)

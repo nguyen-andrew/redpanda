@@ -1,0 +1,14 @@
+|
+| ==== the same guard parameter, but the body throws before any suspension ====
+|
+| param.instrumented()           constructed (mode: throw_when_clear)
+| param#1.instrumented(&&)       move-constructed from param; param is now moved-from
+| param#2.instrumented(&&)       move-constructed from param#1; param#1 is now moved-from
+| param#2.note_alive()           the coroutine body uses this object
+| coro: throwing before any suspension
+| param#2.~instrumented()        uncaught_exceptions=0 current_exception=null
+| param#2.~instrumented()        no exception visible here; throwing
+| param#1.~instrumented()        [moved-from] uncaught_exceptions=1 current_exception=null
+| param.~instrumented()          [moved-from] uncaught_exceptions=1 current_exception=null
+| caller: caught during the call itself: thrown by ~param#2
+| caller: a plain try/catch absorbed it; the process is fine
